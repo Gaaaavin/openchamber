@@ -1,0 +1,342 @@
+# FORK: keeps Gaaaavin/openchamber in step with upstream and publishes fork
+# builds. See FORK.md ("Automation to build") for the design.
+#
+#   sync     ff `main` to upstream/main, rebase `xinhao` onto it, force-push;
+#            on conflict abort, open/update the "rebase conflict" issue, fail.
+#            Creates a draft release when there is something to build.
+#   web      openchamber-web.tgz for remote servers.
+#   mac      ad-hoc signed arm64 zip + dmg (no Apple Developer ID).
+#   publish  flips the draft to a release and bumps the Homebrew cask.
+#
+# Pushes made with GITHUB_TOKEN never trigger other workflows, so every build
+# step lives here instead of in `on: push`.
+name: Fork sync and release
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  push:
+    branches: [xinhao]
+    paths-ignore:
+      - "**.md"
+      - ".claude/**"
+      - ".agents/**"
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: Build and publish a release even if nothing changed
+        type: boolean
+        default: false
+
+concurrency:
+  group: fork-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  UPSTREAM_REPO: https://github.com/openchamber/openchamber.git
+  TAP_REPO: Gaaaavin/homebrew-tap
+  CASK_FILE: Casks/openchamber-xinhao.rb
+
+jobs:
+  sync:
+    name: Sync with upstream
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      sha: ${{ steps.plan.outputs.sha }}
+      short_sha: ${{ steps.plan.outputs.short_sha }}
+      tag: ${{ steps.plan.outputs.tag }}
+      stamp: ${{ steps.plan.outputs.stamp }}
+      upstream_version: ${{ steps.plan.outputs.upstream_version }}
+    steps:
+      - name: Checkout xinhao
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: xinhao
+          fetch-depth: 0
+
+      - name: Restore rerere cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: .git/rr-cache
+          key: fork-rerere-${{ github.run_id }}
+          restore-keys: |
+            fork-rerere-
+
+      - name: Configure git
+        run: |
+          git config user.name "fork-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config rerere.enabled true
+          git config rerere.autoupdate true
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream main
+          git fetch origin main
+
+      - name: Fast-forward main
+        id: main
+        run: |
+          set -euo pipefail
+          before=$(git rev-parse origin/main)
+          after=$(git rev-parse upstream/main)
+          if [ "$before" != "$after" ]; then
+            git push origin upstream/main:refs/heads/main
+            echo "upstream main: $before -> $after"
+          fi
+          echo "changed=$([ "$before" != "$after" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Rebase xinhao onto upstream/main
+        id: rebase
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          old_head=$(git rev-parse HEAD)
+          if git rebase upstream/main; then
+            git push --force-with-lease=xinhao:"$old_head" origin xinhao
+            gh issue list --label fork-sync --state open --json number --jq '.[].number' \
+              | xargs -r -I{} gh issue close {} --comment "Rebase onto $(git rev-parse --short upstream/main) succeeded."
+            exit 0
+          fi
+
+          files=$(git diff --name-only --diff-filter=U | sed 's/^/- `/; s/$/`/')
+          upstream_sha=$(git rev-parse --short upstream/main)
+          git rebase --abort
+          body=$(cat <<EOF
+          \`git rebase upstream/main\` ($upstream_sha) stopped on conflicts in:
+
+          $files
+
+          \`xinhao\` was left untouched. Resolve locally:
+
+              git fetch upstream main
+              git switch xinhao && git rebase upstream/main
+              git push --force-with-lease origin xinhao
+
+          The next scheduled run closes this issue once the rebase succeeds.
+          EOF
+          )
+          gh label create fork-sync --description "Automated fork maintenance" --color BFD4F2 --force
+          existing=$(gh issue list --label fork-sync --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "rebase conflict" --label fork-sync --body "$body"
+          fi
+          exit 1
+
+      - name: Plan release
+        id: plan
+        env:
+          FORCE_RELEASE: ${{ inputs.force_release }}
+          MAIN_CHANGED: ${{ steps.main.outputs.changed }}
+        run: |
+          set -euo pipefail
+          release=false
+          if [ "$MAIN_CHANGED" = "true" ] || [ "$GITHUB_EVENT_NAME" = "push" ] || [ "$FORCE_RELEASE" = "true" ]; then
+            release=true
+          fi
+          sha=$(git rev-parse HEAD)
+          short_sha=$(git rev-parse --short=7 HEAD)
+          stamp=$(date -u +%Y%m%d%H%M)
+          upstream_version=$(node -p "require('./packages/electron/package.json').version")
+          {
+            echo "release=$release"
+            echo "sha=$sha"
+            echo "short_sha=$short_sha"
+            echo "stamp=$stamp"
+            echo "upstream_version=$upstream_version"
+            echo "tag=v${upstream_version}-xinhao.${stamp}-${short_sha}"
+          } >> "$GITHUB_OUTPUT"
+          echo "release=$release tag=v${upstream_version}-xinhao.${stamp}-${short_sha}"
+
+      - name: Create draft release
+        if: steps.plan.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          SHA: ${{ steps.plan.outputs.sha }}
+          UPSTREAM_VERSION: ${{ steps.plan.outputs.upstream_version }}
+          STAMP: ${{ steps.plan.outputs.stamp }}
+        run: |
+          set -euo pipefail
+          base=$(git merge-base HEAD upstream/main)
+          {
+            echo "Fork build of OpenChamber ${UPSTREAM_VERSION}: upstream \`$(git rev-parse --short=7 "$base")\`, fork \`$(git rev-parse --short=7 HEAD)\`."
+            echo
+            echo "Desktop (Homebrew): \`brew upgrade --cask openchamber-xinhao\`"
+            echo
+            echo "Remote servers: install \`openchamber-web.tgz\` and run the instance in external mode."
+            echo
+            echo "Fork patches on top of upstream:"
+            git log --reverse --format='- %s' "$base"..HEAD
+          } > release-notes.md
+          gh release create "$TAG" --draft --target "$SHA" \
+            --title "OpenChamber ${UPSTREAM_VERSION} (xinhao ${STAMP})" \
+            --notes-file release-notes.md
+
+  web:
+    name: Pack openchamber-web.tgz
+    needs: sync
+    if: needs.sync.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ needs.sync.outputs.sha }}
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Create npm tarball
+        working-directory: packages/web
+        run: npm pack
+
+      - name: Upload tarball to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.sync.outputs.tag }}
+        run: |
+          set -euo pipefail
+          src=$(ls packages/web/*.tgz | head -n 1)
+          mkdir -p artifacts
+          cp "$src" artifacts/openchamber-web.tgz
+          cp "$src" "artifacts/openchamber-web-${TAG}.tgz"
+          gh release upload "$TAG" artifacts/openchamber-web.tgz "artifacts/openchamber-web-${TAG}.tgz" --clobber
+
+  mac:
+    name: Build macOS arm64 (ad-hoc signed)
+    needs: sync
+    if: needs.sync.outputs.release == 'true'
+    runs-on: macos-15
+    outputs:
+      zip_sha256: ${{ steps.upload.outputs.zip_sha256 }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ needs.sync.outputs.sha }}
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Get bundled OpenCode CLI version
+        id: opencode_cli_version
+        run: |
+          VERSION=$(node -p "require('./package.json').dependencies['@opencode-ai/sdk']")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache bundled OpenCode CLI artifact
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: packages/electron/.cache/opencode-cli
+          key: opencode-cli-${{ runner.os }}-arm64-${{ steps.opencode_cli_version.outputs.version }}
+          restore-keys: |
+            opencode-cli-${{ runner.os }}-arm64-
+
+      # Same steps as upstream build-macos-arm64-dmg.yml minus certificate
+      # import and notarization. identity "-" is an explicit ad-hoc signature;
+      # null would skip signing and arm64 macOS refuses to launch such an app.
+      - name: Build Electron app (arm64)
+        working-directory: packages/electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          ELECTRON_BUILDER_ARCH: arm64
+          FORK_RELEASE: ${{ needs.sync.outputs.tag }}
+        run: |
+          bun run build:web-assets
+          bun run prepare:opencode-cli
+          bun run verify:opencode-cli
+          bun run bundle:main
+          bun run rebuild:native
+          ./node_modules/.bin/electron-builder --mac --arm64 --publish=never \
+            --config.mac.identity=- \
+            --config.mac.notarize=false \
+            --config.extraMetadata.forkRelease="$FORK_RELEASE"
+          bun run verify:opencode-cli:packaged
+
+      - name: Verify signature
+        run: |
+          set -euo pipefail
+          app=$(ls -d packages/electron/dist/mac-arm64/*.app | head -n 1)
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2>&1 | grep -q "Signature=adhoc"
+
+      - name: Upload zip and dmg to release
+        id: upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.sync.outputs.tag }}
+        run: |
+          set -euo pipefail
+          zip=$(ls packages/electron/dist/*-mac-arm64.zip | head -n 1)
+          dmg=$(ls packages/electron/dist/*-mac-arm64.dmg | head -n 1)
+          gh release upload "$TAG" "$zip" "$dmg" --clobber
+          echo "zip_sha256=$(shasum -a 256 "$zip" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish release and bump cask
+    needs: [sync, web, mac]
+    runs-on: ubuntu-latest
+    env:
+      HAS_TAP_TOKEN: ${{ secrets.TAP_PUSH_TOKEN != '' }}
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.sync.outputs.tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+      - name: Checkout tap
+        if: env.HAS_TAP_TOKEN == 'true'
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: ${{ env.TAP_REPO }}
+          token: ${{ secrets.TAP_PUSH_TOKEN }}
+          path: tap
+
+      - name: Bump cask
+        if: env.HAS_TAP_TOKEN == 'true'
+        working-directory: tap
+        env:
+          TAG: ${{ needs.sync.outputs.tag }}
+          UPSTREAM_VERSION: ${{ needs.sync.outputs.upstream_version }}
+          STAMP: ${{ needs.sync.outputs.stamp }}
+          SHORT_SHA: ${{ needs.sync.outputs.short_sha }}
+          ZIP_SHA256: ${{ needs.mac.outputs.zip_sha256 }}
+        run: |
+          set -euo pipefail
+          sed -i -E "s|^  version \".*\"|  version \"${UPSTREAM_VERSION},${STAMP},${SHORT_SHA}\"|" "$CASK_FILE"
+          sed -i -E "s|^  sha256 \".*\"|  sha256 \"${ZIP_SHA256}\"|" "$CASK_FILE"
+          grep -q "${UPSTREAM_VERSION},${STAMP},${SHORT_SHA}" "$CASK_FILE"
+          grep -q "$ZIP_SHA256" "$CASK_FILE"
+          git config user.name "fork-sync[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "openchamber-xinhao ${TAG}"
+          git push
+
+      - name: Cask bump skipped
+        if: env.HAS_TAP_TOKEN != 'true'
+        run: echo "::warning::TAP_PUSH_TOKEN secret is not set; Casks/openchamber-xinhao.rb was not bumped for ${{ needs.sync.outputs.tag }}."
