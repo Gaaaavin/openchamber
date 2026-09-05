@@ -1,12 +1,14 @@
 import { settingsDict } from './en.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
+import { forkI18n } from './fork.i18n';
 
 export const dict = {
   'sessions.sidebar.projectAction.active': 'Project action active',
   ...settingsDict,
   ...linearIssuePickerI18n.en,
   ...linearPanelI18n.en,
+  ...forkI18n.en,
   'terminalView.actions.attachSelection': 'Attach selected output',
   'terminalView.actions.restart': 'Restart terminal',
   'chat.message.terminalContext': '{terminal}, lines {start}-{end}',

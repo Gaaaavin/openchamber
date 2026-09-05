@@ -29,7 +29,7 @@ import { QuestionCard } from './QuestionCard';
 import { hasActiveQuestionToolInCurrentTurn, recoverPendingQuestionWithRetry } from '@/sync/question-recovery';
 import { StatusRowContainer } from './StatusRowContainer';
 import { SessionRecapNote } from '@/components/chat/SessionRecapSpacer';
-import { SessionErrorNotice } from '@/components/chat/SessionErrorNotice';
+import { SessionErrorNotice } from '@/components/chat/fork/SessionErrorNotice'; // FORK: reply-wait UX, see FORK.md patch 1
 import ScrollToBottomButton from './components/ScrollToBottomButton';
 import { PromptNavigatorRail } from './components/PromptNavigatorRail';
 import { useAuthSessionStore } from '@/lib/runtime-auth-expiry';

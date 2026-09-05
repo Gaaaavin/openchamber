@@ -133,7 +133,7 @@ bot is live (it rewrites history).
 | 0b | Desktop seams: ad-hoc signed build (`--config.mac.identity=-`, `--config.mac.notarize=false`, `--config.extraMetadata.forkRelease=<tag>`); `electron-updater` off behind `ELECTRON_UPDATER_ENABLED`; update check reads this fork's GitHub releases and the dialog shows `brew upgrade --cask openchamber-xinhao` | `packages/electron/fork-release.mjs` (+ test), 4 `// FORK:` seams in `packages/electron/main.mjs`, 3 in `packages/ui/src/components/ui/UpdateDialog.tsx` | DONE |
 | 0c | Web seams: update check + `openchamber update` target this fork's release tgz instead of npm `@openchamber/web` | `packages/web/server/lib/package-manager.js:12-22, 123-161, 657-667, 684-702, 751-797` | TODO (needed only before the first remote server; until then README says to re-run `npm install -g <tgz url>`) |
 | docs | `README.md` replaced with install instructions + link to upstream; fork-owned via merge driver (see Branch layout) | `README.md`, `fork-sync.yml` rebase step | DONE |
-| 1 | Clearer wording for assistant-turn errors | `packages/ui/src/components/chat/ChatMessage.tsx:681-698` | TODO |
+| 1 | Reply-wait notice: replaces the red "OpenCode did not start a reply" guess with a connection-aware waiting state (2 s muted spinner → 20 s server-confirmed warning with Send again / Check again / Status report). Fixes upstream's `completed ?? created` timestamp bug that made the 5 s grace 0 s for optimistic messages. Status report gains connection phase + viewed-session local/server status | `packages/ui/src/components/chat/fork/SessionErrorNotice.tsx` (+ test), `packages/ui/src/lib/i18n/messages/fork.i18n.ts`, one import seam in `ChatContainer.tsx:32`, 2 lines per locale file, `// FORK:` block in `lib/openCodeStatus.ts` | DONE |
 | 2 | Live TPS readout in composer status bar (streamed-delta estimate, modelled on JDScript/opencode) | `packages/ui/src/components/chat/ComposerStatusBar.tsx` (via `leftAccessory` or a sibling component; avoid editing `ChatInput.tsx` body, it is a 3000-line conflict hot spot) | TODO |
 
 Keep patches out of hot files where possible; prefer new files and narrow,
@@ -249,10 +249,17 @@ a `v*` tag (`release.yml`, `vscode-extension.yml`) or a commit to `main`
      strip for real.
    - Dispatch `fork-sync.yml` with `force_release` once and confirm the cask
      commit lands in the tap without manual help.
-4. Patch 1 (error wording). Before changing text, capture a few real
-   occurrences of the `detail` string to learn the actual root cause; the
-   prefix "Opencode failed to send message" is a catch-all around
-   `message.info.error` from OpenCode, not a transport failure.
+4. Patch 1 is done for the session-level notice. Root cause of the false
+   alarm: upstream `SessionErrorNotice.tsx:41` reads
+   `time.completed ?? time.created`, and the optimistic user message has
+   `completed: 0`, so the 5 s grace was 0 s; the server also publishes the
+   user `message.updated` before `session.status busy`, so a status blip
+   right after send was enough to fire it. Still open: the inline
+   `ChatMessage.tsx:681-698` wording for real assistant errors (the
+   "Opencode failed to send message" catch-all) — capture real `detail`
+   strings before touching it. Note `Event stream:` in the status report is
+   a dead field (`setEventStreamStatus` has no callers); use the new
+   `Connection phase:` line instead.
 5. Patch 2 (TPS). Decided: live estimate from streamed text deltas, modelled
    on JDScript/opencode's implementation (read it first; do not reinvent the
    window/decay). The per-message `tokens.output / wall-time` average was
