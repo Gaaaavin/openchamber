@@ -1,4 +1,4 @@
-/** Personal-fork reply notice strings, merged into each locale's main dictionary. */
+/** Personal-fork UI strings, merged into each locale's main dictionary. */
 export const forkI18n = {
   en: {
     'fork.replyNotice.reconnecting': 'Reconnecting to OpenCode…',
@@ -8,6 +8,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Send again',
     'fork.replyNotice.checkAgain': 'Check again',
     'fork.replyNotice.statusReport': 'Status report',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Output tokens per second over the last few seconds. Estimated from the text as it arrives.',
   },
   de: {
     'fork.replyNotice.reconnecting': 'Verbindung zu OpenCode wird wiederhergestellt…',
@@ -17,6 +19,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Erneut senden',
     'fork.replyNotice.checkAgain': 'Erneut prüfen',
     'fork.replyNotice.statusReport': 'Statusbericht',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Ausgabe-Token pro Sekunde in den letzten Sekunden. Aus dem eintreffenden Text geschätzt, nicht exakt gezählt.',
   },
   es: {
     'fork.replyNotice.reconnecting': 'Reconectando con OpenCode…',
@@ -26,6 +30,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Enviar de nuevo',
     'fork.replyNotice.checkAgain': 'Comprobar de nuevo',
     'fork.replyNotice.statusReport': 'Informe de estado',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Tokens de salida por segundo durante los últimos segundos. Se estima a partir del texto a medida que llega; no es un recuento exacto.',
   },
   fr: {
     'fork.replyNotice.reconnecting': 'Reconnexion à OpenCode…',
@@ -35,6 +41,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Renvoyer',
     'fork.replyNotice.checkAgain': 'Vérifier à nouveau',
     'fork.replyNotice.statusReport': 'Rapport d’état',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Tokens de sortie par seconde sur les dernières secondes. Estimation d’après le texte à mesure qu’il arrive, et non décompte exact.',
   },
   ja: {
     'fork.replyNotice.reconnecting': 'OpenCode に再接続中…',
@@ -44,6 +52,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': '再送信',
     'fork.replyNotice.checkAgain': 'もう一度確認',
     'fork.replyNotice.statusReport': 'ステータスレポート',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': '直近数秒間の1秒あたりの出力トークン数です。届いたテキストから推定した値で、正確な計数ではありません。',
   },
   ko: {
     'fork.replyNotice.reconnecting': 'OpenCode에 다시 연결하는 중…',
@@ -53,6 +63,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': '다시 보내기',
     'fork.replyNotice.checkAgain': '다시 확인',
     'fork.replyNotice.statusReport': '상태 보고서',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': '최근 몇 초간 초당 출력 토큰 수입니다. 도착하는 텍스트를 바탕으로 추정한 값이며 정확한 집계가 아닙니다.',
   },
   pl: {
     'fork.replyNotice.reconnecting': 'Ponowne łączenie z OpenCode…',
@@ -62,6 +74,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Wyślij ponownie',
     'fork.replyNotice.checkAgain': 'Sprawdź ponownie',
     'fork.replyNotice.statusReport': 'Raport o stanie',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Liczba tokenów wyjściowych na sekundę w ciągu ostatnich kilku sekund. Wartość szacowana na podstawie napływającego tekstu, a nie dokładny pomiar.',
   },
   'pt-BR': {
     'fork.replyNotice.reconnecting': 'Reconectando ao OpenCode…',
@@ -71,6 +85,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Enviar novamente',
     'fork.replyNotice.checkAgain': 'Verificar novamente',
     'fork.replyNotice.statusReport': 'Relatório de status',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Tokens de saída por segundo nos últimos segundos. Valor estimado a partir do texto conforme ele chega, não uma contagem exata.',
   },
   tr: {
     'fork.replyNotice.reconnecting': 'OpenCode’a yeniden bağlanılıyor…',
@@ -80,6 +96,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Yeniden gönder',
     'fork.replyNotice.checkAgain': 'Tekrar kontrol et',
     'fork.replyNotice.statusReport': 'Durum raporu',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Son birkaç saniyedeki saniye başına çıktı token sayısı. Gelen metinden tahmin edilir; kesin bir sayım değildir.',
   },
   uk: {
     'fork.replyNotice.reconnecting': 'Повторне підключення до OpenCode…',
@@ -89,6 +107,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': 'Надіслати ще раз',
     'fork.replyNotice.checkAgain': 'Перевірити ще раз',
     'fork.replyNotice.statusReport': 'Звіт про стан',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': 'Кількість вихідних токенів за секунду протягом останніх кількох секунд. Оцінено за текстом у міру його надходження, це не точний підрахунок.',
   },
   'zh-CN': {
     'fork.replyNotice.reconnecting': '正在重新连接 OpenCode…',
@@ -98,6 +118,8 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': '重新发送',
     'fork.replyNotice.checkAgain': '再检查一次',
     'fork.replyNotice.statusReport': '状态报告',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': '最近几秒的输出速度（token/秒）。按到达的文本估算，非精确计数。',
   },
   'zh-TW': {
     'fork.replyNotice.reconnecting': '正在重新連線 OpenCode…',
@@ -107,5 +129,7 @@ export const forkI18n = {
     'fork.replyNotice.sendAgain': '重新傳送',
     'fork.replyNotice.checkAgain': '再檢查一次',
     'fork.replyNotice.statusReport': '狀態報告',
+    'fork.tps.label': 'TPS',
+    'fork.tps.title': '最近幾秒的輸出速度（token/秒）。依到達的文字估算，並非精確計數。',
   },
 } as const;
