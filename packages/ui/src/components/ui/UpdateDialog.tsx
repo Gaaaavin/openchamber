@@ -140,6 +140,9 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
   const isWebRuntime = runtimeType === 'web';
   const isMobileRuntime = runtimeType === 'mobile';
   const updateCommand = info?.updateCommand || 'openchamber update';
+  // FORK: Homebrew-installed desktop builds report `updateCommand`; the in-app
+  // installer is off for them, so the dialog shows the command instead.
+  const desktopUsesPackageManager = !isWebRuntime && !isMobileRuntime && Boolean(info?.updateCommand);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -335,7 +338,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
           )}
 
           {/* Web runtime fallback command */}
-          {isWebRuntime && info?.packageManager !== 'electron' && webUpdateState === 'error' && (
+          {((isWebRuntime && info?.packageManager !== 'electron' && webUpdateState === 'error') || desktopUsesPackageManager) && (
             <div className="space-y-2 mt-4">
               <div className="flex items-center gap-2 typography-meta text-muted-foreground">
                 <Icon name="terminal" className="h-4 w-4" />
@@ -403,7 +406,7 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
 
           <div className="flex-1 flex justify-end">
             {/* Desktop Buttons */}
-            {!isWebRuntime && !isMobileRuntime && !downloaded && !downloading && (
+            {!isWebRuntime && !isMobileRuntime && !desktopUsesPackageManager && !downloaded && !downloading && (
               <button
                 onClick={onDownload}
                 className="flex items-center justify-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-[var(--primary-base)] text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
