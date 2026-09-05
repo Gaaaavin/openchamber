@@ -172,7 +172,15 @@ jobs:
           {
             echo "Fork build of OpenChamber ${UPSTREAM_VERSION}: upstream \`$(git rev-parse --short=7 "$base")\`, fork \`$(git rev-parse --short=7 HEAD)\`."
             echo
-            echo "Desktop (Homebrew): \`brew upgrade --cask openchamber-xinhao\`"
+            echo "Desktop, first install:"
+            echo
+            echo '```bash'
+            echo "brew tap Gaaaavin/tap"
+            echo "brew trust --cask gaaaavin/tap/openchamber-xinhao"
+            echo "brew install --cask openchamber-xinhao"
+            echo '```'
+            echo
+            echo "Desktop, upgrade: \`brew upgrade --cask openchamber-xinhao\`"
             echo
             echo "Remote servers: install \`openchamber-web.tgz\` and run the instance in external mode."
             echo
