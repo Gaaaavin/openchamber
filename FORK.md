@@ -34,20 +34,38 @@ Therefore the fork ships two artifacts per release:
 
 1. **Desktop**: ad-hoc-signed, un-notarized `OpenChamber-<ver>-mac-arm64.zip`,
    distributed through a personal Homebrew tap (`Gaaaavin/homebrew-tap`, cask
-   `openchamber-xinhao`). No Apple Developer ID needed: Homebrew with
-   `--no-quarantine` bypasses Gatekeeper, and `brew upgrade` replaces the whole
-   `.app`, so Squirrel.Mac's signature check (which blocks unsigned
-   `electron-updater` on macOS) is never involved.
+   `openchamber-xinhao`). No Apple Developer ID needed: the cask strips the
+   quarantine attribute in `postflight_steps`, so Gatekeeper never evaluates
+   the app, and `brew upgrade` replaces the whole `.app`, so Squirrel.Mac's
+   signature check (which blocks unsigned `electron-updater` on macOS) is
+   never involved.
 2. **Web**: `openchamber-web.tgz` for remote servers.
+
+Gatekeeper mechanics (verified against Homebrew 6.0.22 source, 2026-09-05):
+
+- Homebrew 6 removed `--no-quarantine`; `HOMEBREW_CASK_OPTS=--no-quarantine`
+  is silently ignored. A quarantined ad-hoc app shows "app is damaged, move
+  to Trash" on first launch, fixable only via System Settings -> Privacy &
+  Security -> Open Anyway.
+- Homebrew's replacement is approval inheritance on `brew upgrade`: the
+  user-approved bit (`0x0040` in `com.apple.quarantine`) is copied to the new
+  version when it satisfies the old version's designated requirement. An
+  ad-hoc signature's designated requirement is `cdhash H"..."`, new on every
+  build, so inheritance always reports "signer changed" for this fork. Making
+  the requirement stable (`--requirements '=designated => identifier
+  "dev.openchamber.desktop"'` via an `afterSign` hook) would let inheritance
+  work after one manual approval; not done, the postflight strip makes it moot.
+- The strip runs on install and upgrade, and inside Homebrew's step sandbox
+  (`/Applications` is writable there). Verified with a throwaway cask
+  installing the same zip under another name: 0 quarantine attributes left,
+  versus 1687 on an install done before the fix.
 
 Known costs of ad-hoc signing: every build has a new code identity. Notification
 permission (keyed by bundle id) persists; signature-keyed TCC grants
 (Accessibility, Screen Recording) would reset per upgrade, but OpenChamber does
 not appear to request them. No `safeStorage`/`keytar` use was found in
 `packages/electron`, so the usual "Keychain prompt after every update" of
-unsigned Electron apps is not expected (inferred, not tested). If
-`HOMEBREW_CASK_OPTS=--no-quarantine` is missing, macOS blocks the app until
-System Settings -> Privacy & Security -> Open Anyway.
+unsigned Electron apps is not expected (inferred, not tested).
 
 Upgrade path to a fully silent in-app updater later: buy an Apple Developer ID,
 restore the signing/notarize steps from upstream's
@@ -129,13 +147,17 @@ Repo `Gaaaavin/homebrew-tap`, file `Casks/openchamber-xinhao.rb`, modelled on
 - `conflicts_with cask: "openchamber"`.
 - **No** `auto_updates true` (upstream has it), so plain `brew upgrade` picks
   the cask up without `--greedy`.
-- `uninstall quit: "dev.openchamber.desktop"` so upgrades quit the app first.
+- `uninstall quit: "dev.openchamber.desktop"` so upgrades quit the app first
+  (Homebrew 6 reopens it afterwards).
+- `postflight_steps` runs `xattr -dr com.apple.quarantine` on the installed
+  app (see "Gatekeeper mechanics" above). Legacy `postflight do ... end`
+  blocks fail `brew style`; only the declarative `*_steps` form is accepted.
 
 User-side install:
 
 ```bash
 brew tap Gaaaavin/tap
-echo 'export HOMEBREW_CASK_OPTS="--no-quarantine"' >> ~/.zshrc   # required, also for upgrades
+brew trust --cask gaaaavin/tap/openchamber-xinhao   # Homebrew 6 refuses untrusted third-party casks
 brew uninstall --cask openchamber   # if the upstream cask was installed; delete /Applications/OpenChamber.app if installed from DMG
 brew install --cask openchamber-xinhao
 brew upgrade                        # later; optional: `brew autoupdate start` for a launchd timer
@@ -203,10 +225,11 @@ a `v*` tag (`release.yml`, `vscode-extension.yml`) or a commit to `main`
    - Create the secret: fine-grained PAT, repository `Gaaaavin/homebrew-tap`,
      permission Contents: read and write, no expiry or a long one; then
      `gh secret set TAP_PUSH_TOKEN --repo Gaaaavin/openchamber`.
-   - Quit the upstream app and `brew install --cask openchamber-xinhao`
-     (with `HOMEBREW_CASK_OPTS=--no-quarantine`). This is also the first live
-     launch of an ad-hoc build: confirm it opens, settings carried over, and
-     Settings -> About -> Check for updates says up to date.
+   - Done: `brew install --cask openchamber-xinhao` on the dev Mac; the app
+     launched and settings carried over. It needed Open Anyway once because
+     the cask still relied on `--no-quarantine` at the time; that install is
+     approved and stays so. The next `brew upgrade` exercises the postflight
+     strip for real.
    - Dispatch `fork-sync.yml` with `force_release` once and confirm the cask
      commit lands in the tap without manual help.
 4. Patch 1 (error wording). Before changing text, capture a few real
