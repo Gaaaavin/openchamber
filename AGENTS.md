@@ -6,6 +6,8 @@ OpenChamber provides shared web, desktop, VS Code, hosted-mobile, and native-mob
 
 This file contains only always-on repository rules and routing. Detailed workflows belong to project skills and module documentation.
 
+FORK: this checkout is the personal fork `Gaaaavin/openchamber`. Read `FORK.md` and `.claude/context/conventions.md` first; they own branch layout, patch-series discipline, and release scheme. Where they conflict with this file, they win.
+
 ## Instruction Order
 
 These steps are mandatory. Before editing, you **MUST**:
@@ -38,7 +40,7 @@ Shared contracts must define intentional behavior for every applicable runtime: 
 ## Always-On Constraints
 
 - Do not modify `../opencode`; it is a separate repository.
-- Do not run git or GitHub commands unless the user explicitly asks.
+- FORK: git and `gh` commands are allowed without asking — commit and push to `xinhao`, manage `Gaaaavin/*` repos, releases, workflows, and secrets metadata. `main` is a fast-forward mirror of upstream: never commit to it. Never push to `upstream`.
 - Do not add dependencies unless explicitly requested.
 - Never add or log secrets, bearer tokens, pairing credentials, or sensitive user data.
 - Keep changes minimal and preserve unrelated worktree changes.
