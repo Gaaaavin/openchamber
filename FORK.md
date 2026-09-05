@@ -95,7 +95,7 @@ bot is live (it rewrites history).
 | # | Patch | Files | Status |
 |---|-------|-------|--------|
 | 0a | Fork workflows (`fork-sync.yml`, optional `fork-release.yml`) | `.github/workflows/fork-*.yml` | TODO |
-| 0b | Desktop seams: build unsigned (`mac.identity=null`, `mac.notarize=false`); disable `autoUpdater`, replace with "new release -> run `brew upgrade --cask openchamber-xinhao`" notice that reads this fork's GitHub releases | `packages/electron/package.json` (or `--config` overrides in the workflow), `packages/electron/main.mjs:3088-3118`, `packages/electron/updater-feed.mjs` | TODO |
+| 0b | Desktop seams: ad-hoc signed build (`--config.mac.identity=-`, `--config.mac.notarize=false`, `--config.extraMetadata.forkRelease=<tag>`); `electron-updater` off behind `ELECTRON_UPDATER_ENABLED`; update check reads this fork's GitHub releases and the dialog shows `brew upgrade --cask openchamber-xinhao` | `packages/electron/fork-release.mjs` (+ test), 4 `// FORK:` seams in `packages/electron/main.mjs`, 3 in `packages/ui/src/components/ui/UpdateDialog.tsx` | DONE |
 | 0c | Web seams: update check + `openchamber update` target this fork's release tgz instead of npm `@openchamber/web` | `packages/web/server/lib/package-manager.js:12-22, 123-161, 657-667, 684-702, 751-797` | TODO (needed only before the first remote server) |
 | 1 | Clearer wording for assistant-turn errors | `packages/ui/src/components/chat/ChatMessage.tsx:681-698` | TODO |
 | 2 | Live TPS readout in composer status bar (streamed-delta estimate, modelled on JDScript/opencode) | `packages/ui/src/components/chat/ComposerStatusBar.tsx` (via `leftAccessory` or a sibling component; avoid editing `ChatInput.tsx` body, it is a 3000-line conflict hot spot) | TODO |
@@ -166,7 +166,10 @@ Actions minutes (including macOS runners) are free.
 - Job `mac` (macos-15 arm64, same condition): copy the steps of upstream
   `build-macos-arm64-dmg.yml` minus certificate import and notarization; env
   `CSC_IDENTITY_AUTO_DISCOVERY=false`; electron-builder overrides
-  `mac.identity=null`, `mac.notarize=false`; upload zip + dmg to the release;
+  `--config.mac.identity=-` (ad-hoc; `null` skips signing and arm64 macOS then
+  refuses to launch the app), `--config.mac.notarize=false`,
+  `--config.extraMetadata.forkRelease=<tag>` (read by `fork-release.mjs` to
+  compare against the latest fork release); upload zip + dmg to the release;
   compute sha256; check out `Gaaaavin/homebrew-tap`, rewrite
   `Casks/openchamber-xinhao.rb` (`version`, `sha256`), commit and push.
 - Pushes by `GITHUB_TOKEN` do not trigger other workflows, so build jobs must
@@ -174,15 +177,21 @@ Actions minutes (including macOS runners) are free.
 
 ## Open tasks (in order)
 
-Done (2026-09-05): `xinhao` pushed and set as default branch; Actions enabled;
-all inherited upstream workflows disabled.
+Done (2026-09-05): `xinhao` pushed and set as default branch; Actions enabled.
+GitHub does not register workflows until a push touches `.github/workflows/`,
+so `gh workflow disable` for the 17 inherited files runs right after
+`fork-sync.yml` is pushed and before its first dispatch. Until then, never push
+a `v*` tag (`release.yml`, `vscode-extension.yml`) or a commit to `main`
+(`docs-source.yml`, `label-merge-conflict.yml`).
 
 1. Create `Gaaaavin/homebrew-tap` with a first `Casks/openchamber-xinhao.rb`
    (can point at an upstream zip initially to validate the cask syntax with
    `brew audit --cask`/`brew style`).
-2. Patch 0b (unsigned desktop build + disable `autoUpdater` + brew notice).
-   Build locally once (`bun run electron:build` with the overrides) and confirm
-   the ad-hoc app launches after `xattr -cr`.
+2. Patch 0b: done. Local build verified (`codesign --verify --deep --strict`
+   passes, `Signature=adhoc` with `runtime` flag, entitlements applied,
+   `forkRelease` present in the packaged package.json). A live launch was not
+   possible because the upstream app was running and holds the single-instance
+   lock; the first `brew install` in step 3 is the launch test.
 3. Patch 0a: `fork-sync.yml`. Run once manually with `force_release`; confirm
    the release has zip + tgz and the cask was bumped; `brew install --cask
    openchamber-xinhao` on the dev Mac; confirm settings carried over.
