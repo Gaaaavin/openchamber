@@ -94,7 +94,7 @@ bot is live (it rewrites history).
 
 | # | Patch | Files | Status |
 |---|-------|-------|--------|
-| 0a | Fork workflows (`fork-sync.yml`, optional `fork-release.yml`) | `.github/workflows/fork-*.yml` | TODO |
+| 0a | Fork workflow `fork-sync.yml` (sync + release + cask bump in one file) | `.github/workflows/fork-sync.yml` | DONE |
 | 0b | Desktop seams: ad-hoc signed build (`--config.mac.identity=-`, `--config.mac.notarize=false`, `--config.extraMetadata.forkRelease=<tag>`); `electron-updater` off behind `ELECTRON_UPDATER_ENABLED`; update check reads this fork's GitHub releases and the dialog shows `brew upgrade --cask openchamber-xinhao` | `packages/electron/fork-release.mjs` (+ test), 4 `// FORK:` seams in `packages/electron/main.mjs`, 3 in `packages/ui/src/components/ui/UpdateDialog.tsx` | DONE |
 | 0c | Web seams: update check + `openchamber update` target this fork's release tgz instead of npm `@openchamber/web` | `packages/web/server/lib/package-manager.js:12-22, 123-161, 657-667, 684-702, 751-797` | TODO (needed only before the first remote server) |
 | 1 | Clearer wording for assistant-turn errors | `packages/ui/src/components/chat/ChatMessage.tsx:681-698` | TODO |
@@ -151,8 +151,12 @@ Actions minutes (including macOS runners) are free.
 
 `fork-sync.yml`
 
-- `on: schedule` (every 6h) + `workflow_dispatch` (with a `force_release`
-  input).
+- `on: schedule` (every 6h) + `push` to `xinhao` (ignoring `**.md`,
+  `.claude/**`, `.agents/**`, so a fork patch ships without waiting for
+  upstream) + `workflow_dispatch` (with a `force_release` input).
+- Secret `TAP_PUSH_TOKEN` (fine-grained PAT, Contents: read/write on
+  `Gaaaavin/homebrew-tap`) is required for the cask bump; without it the
+  release still publishes and the run ends with a warning.
 - Job `sync` (ubuntu): fetch upstream; ff `main`; `git rebase main` on `xinhao`
   (with `rerere` cache restored via `actions/cache`); on success
   `push --force-with-lease`; outputs `changed`, `upstream_version`, `sha`.
