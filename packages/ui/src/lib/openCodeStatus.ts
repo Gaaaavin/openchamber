@@ -1,5 +1,6 @@
 import { useSessionUIStore } from '@/sync/session-ui-store';
-import { getSyncSessions } from '@/sync/sync-refs';
+import { getDirectoryState, getSyncSessions } from '@/sync/sync-refs';
+import { useConfigStore } from '@/stores/useConfigStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { getRuntimeUrlResolver } from './runtime-url';
 import { opencodeClient } from './opencode/client';
@@ -298,6 +299,20 @@ export const buildOpenCodeStatusReport = async (): Promise<string> => {
   lines.push(`Runtime: ${origin || '(unknown)'} (api=${apiBase || '(unknown)'})`);
   lines.push(`OpenCode SDK base: ${opencodeClient.getBaseUrl()}`);
   lines.push(`Event stream: ${eventStreamStatus}`);
+  // FORK: capture the connection and viewed-turn evidence behind the reply-wait notice.
+  const connection = useConfigStore.getState();
+  lines.push(`Connection phase: ${connection.connectionPhase} (connected=${connection.isConnected}, lastDisconnectReason=${connection.lastDisconnectReason ?? 'none'})`);
+  const viewedSessionId = useSessionUIStore.getState().currentSessionId;
+  if (viewedSessionId) {
+    const viewedState = getDirectoryState(directory);
+    const viewedStatus = viewedState?.session_status[viewedSessionId]?.type ?? 'none';
+    const viewedMessages = viewedState?.message[viewedSessionId];
+    const viewedLastMessage = viewedMessages?.[viewedMessages.length - 1];
+    const viewedAge = viewedLastMessage ? Math.max(0, Math.floor((Date.now() - viewedLastMessage.time.created) / 1000)) : null;
+    lines.push(`Viewed session: ${viewedSessionId} local status=${viewedStatus} last message role=${viewedLastMessage?.role ?? 'none'} age=${viewedAge === null ? 'none' : `${viewedAge}s`}`);
+    const viewedServerSnapshot = await opencodeClient.getSessionStatusForDirectory(directory || null);
+    lines.push(`Viewed session server status: ${viewedServerSnapshot === null ? 'unavailable' : viewedServerSnapshot[viewedSessionId]?.type ?? 'idle/absent'}`);
+  }
   lines.push(`Directory: ${directory || '(none)'}`);
   lines.push(`Platform: ${platform}`);
 

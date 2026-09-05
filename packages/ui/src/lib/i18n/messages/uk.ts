@@ -2,6 +2,7 @@ import type { I18nKey } from './en';
 import { settingsDict } from './uk.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
+import { forkI18n } from './fork.i18n';
 
 export const dict: Record<I18nKey, string> = {
   'chat.liveActivity.title': 'Дії',
@@ -17,6 +18,7 @@ export const dict: Record<I18nKey, string> = {
   ...settingsDict,
   ...linearIssuePickerI18n.uk,
   ...linearPanelI18n.uk,
+  ...forkI18n.uk,
   'terminalView.actions.attachSelection': 'Прикріпити вибраний вивід',
   'terminalView.actions.copySelection': 'Скопіювати вибраний вивід',
   'terminalView.toast.selectionCopied': 'Вивід скопійовано',
