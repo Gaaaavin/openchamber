@@ -40,6 +40,8 @@ env:
   UPSTREAM_REPO: https://github.com/openchamber/openchamber.git
   TAP_REPO: Gaaaavin/homebrew-tap
   CASK_FILE: Casks/openchamber-xinhao.rb
+  # gh would otherwise resolve the `upstream` git remote as the target repo.
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   sync:
