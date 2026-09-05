@@ -20,6 +20,8 @@ import { assertUpdaterCapability } from './updater-capability.mjs';
 import { checkForDesktopUpdate } from './updater-check.mjs';
 import { resolveUpdaterChannel } from './updater-channel.mjs';
 import { resolveUpdaterFeed } from './updater-feed.mjs';
+// FORK: Homebrew-distributed unsigned build; see fork-release.mjs.
+import { ELECTRON_UPDATER_ENABLED, FORK_UPDATE_COMMAND, checkForkRelease, readForkRelease } from './fork-release.mjs';
 import {
   buildLinuxInstalledApps,
   buildLinuxOpenSpecs,
@@ -220,6 +222,8 @@ const readAppMetadata = () => {
 
 const APP_METADATA = readAppMetadata();
 const APP_VERSION = APP_METADATA.version;
+// FORK: release tag baked in by the fork build; null for dev and hand-packaged builds.
+const FORK_RELEASE = readForkRelease({ packageJsonPath: path.join(app.getAppPath?.() || __dirname, 'package.json') });
 
 const DEFAULT_DESKTOP_PORT = 57123;
 const LOOPBACK_BIND_HOST = '127.0.0.1';
@@ -3151,6 +3155,11 @@ const compareSemver = (left, right) => {
 };
 
 const setupAutoUpdater = () => {
+  // FORK: unsigned build; electron-updater would reject its own payload on install.
+  if (!ELECTRON_UPDATER_ENABLED) {
+    log.info('[electron] electron-updater disabled for fork build', { forkRelease: FORK_RELEASE?.version || null });
+    return;
+  }
   if (!app.isPackaged) {
     return;
   }
@@ -4549,6 +4558,10 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     }
 
     case 'desktop_check_for_updates': {
+      // FORK: compare against this fork's GitHub releases; the UI shows the brew command.
+      if (!ELECTRON_UPDATER_ENABLED) {
+        return await checkForkRelease({ currentRelease: FORK_RELEASE, appVersion: APP_VERSION });
+      }
       assertUpdaterCapability({ packaged: app.isPackaged });
       const currentVersion = APP_VERSION;
       const { available, updateInfo, updateResult, nextVersion, pendingUpdate } = await checkForDesktopUpdate({
@@ -4573,6 +4586,10 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     }
 
     case 'desktop_download_and_install_update':
+      // FORK: nothing to download in-app; Homebrew replaces the bundle.
+      if (!ELECTRON_UPDATER_ENABLED) {
+        throw new Error(`This build is installed by Homebrew. Run: ${FORK_UPDATE_COMMAND}`);
+      }
       assertUpdaterCapability({ packaged: app.isPackaged });
       if (!state.pendingUpdate) {
         throw new Error('No pending update');
