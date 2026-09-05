@@ -2,12 +2,14 @@ import type { I18nKey } from './en';
 import { settingsDict } from './ko.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
+import { forkI18n } from './fork.i18n';
 
 export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.projectAction.active': '프로젝트 작업 실행 중',
   ...settingsDict,
   ...linearIssuePickerI18n.ko,
   ...linearPanelI18n.ko,
+  ...forkI18n.ko,
   'terminalView.actions.attachSelection': '선택한 출력 첨부',
   'terminalView.actions.copySelection': '선택한 출력 복사',
   'terminalView.toast.selectionCopied': '출력을 복사했습니다',
