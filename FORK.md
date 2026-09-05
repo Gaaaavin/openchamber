@@ -71,9 +71,10 @@ git remote -v
 git switch xinhao
 ```
 
-Note: SSH to github.com:22 was blocked on the network where this was set up, so
-`origin` uses HTTPS (credentials via osxkeychain / `gh auth`). Switch to SSH
-or `ssh.github.com:443` if preferred.
+`origin` uses SSH (`git@github.com:Gaaaavin/openchamber.git`). The HTTPS
+route through `gh auth` lacks the `workflow` scope and GitHub rejects pushes
+that touch `.github/workflows/` over it. If SSH:22 is blocked on some network,
+use `ssh.github.com:443` rather than switching back to HTTPS.
 
 Manual sync (until the bot exists):
 
@@ -196,9 +197,18 @@ a `v*` tag (`release.yml`, `vscode-extension.yml`) or a commit to `main`
    `forkRelease` present in the packaged package.json). A live launch was not
    possible because the upstream app was running and holds the single-instance
    lock; the first `brew install` in step 3 is the launch test.
-3. Patch 0a: `fork-sync.yml`. Run once manually with `force_release`; confirm
-   the release has zip + tgz and the cask was bumped; `brew install --cask
-   openchamber-xinhao` on the dev Mac; confirm settings carried over.
+3. Patch 0a: done. First release `v1.22.2-xinhao.202609052033-f183e06`
+   published with zip, dmg, and both tgz names; its cask bump was done by hand
+   because `TAP_PUSH_TOKEN` did not exist yet. Remaining, in order:
+   - Create the secret: fine-grained PAT, repository `Gaaaavin/homebrew-tap`,
+     permission Contents: read and write, no expiry or a long one; then
+     `gh secret set TAP_PUSH_TOKEN --repo Gaaaavin/openchamber`.
+   - Quit the upstream app and `brew install --cask openchamber-xinhao`
+     (with `HOMEBREW_CASK_OPTS=--no-quarantine`). This is also the first live
+     launch of an ad-hoc build: confirm it opens, settings carried over, and
+     Settings -> About -> Check for updates says up to date.
+   - Dispatch `fork-sync.yml` with `force_release` once and confirm the cask
+     commit lands in the tap without manual help.
 4. Patch 1 (error wording). Before changing text, capture a few real
    occurrences of the `detail` string to learn the actual root cause; the
    prefix "Opencode failed to send message" is a catch-all around
