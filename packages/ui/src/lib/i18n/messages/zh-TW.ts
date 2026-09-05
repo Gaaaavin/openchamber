@@ -2,12 +2,14 @@ import type { I18nKey } from './en';
 import { settingsDict } from './zh-TW.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
+import { forkI18n } from './fork.i18n';
 
 export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.projectAction.active': '專案操作正在執行',
   ...settingsDict,
   ...linearIssuePickerI18n['zh-TW'],
   ...linearPanelI18n['zh-TW'],
+  ...forkI18n['zh-TW'],
   'terminalView.actions.attachSelection': '附加所選輸出',
   'terminalView.actions.restart': '重新啟動終端',
   'chat.message.terminalContext': '{terminal}，第 {start}-{end} 行',
