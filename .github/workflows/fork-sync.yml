@@ -100,8 +100,10 @@ jobs:
           old_head=$(git rev-parse HEAD)
           if git rebase upstream/main; then
             git push --force-with-lease=xinhao:"$old_head" origin xinhao
-            gh issue list --label fork-sync --state open --json number --jq '.[].number' \
-              | xargs -r -I{} gh issue close {} --comment "Rebase onto $(git rev-parse --short upstream/main) succeeded."
+            # Housekeeping only: a gh failure here must not turn a good sync into a failed run.
+            gh issue list --label fork-sync --state open --json number --jq '.[].number' 2>/dev/null \
+              | xargs -r -I{} gh issue close {} --comment "Rebase onto $(git rev-parse --short upstream/main) succeeded." \
+              || echo "::warning::could not close open fork-sync issues"
             exit 0
           fi
 
