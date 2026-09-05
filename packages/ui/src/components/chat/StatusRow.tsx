@@ -1,6 +1,7 @@
 import React from "react";
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { WorkingPlaceholder } from "./message/parts/WorkingPlaceholder";
+import { StatusRowTps } from './fork/StatusRowTps'; // FORK: live TPS, see FORK.md patch 2
 
 // The floating assistant-status chip that hovers above the composer while the
 // agent works ("Claude is working…"). ONLY that. The composer's
@@ -70,6 +71,8 @@ export const StatusRow: React.FC<StatusRowProps> = ({
             />
           ) : null}
         </div>
+        {/* FORK: live TPS, see FORK.md patch 2 */}
+        <StatusRowTps isWorking={isWorking} />
       </div>
     </div>
   );
