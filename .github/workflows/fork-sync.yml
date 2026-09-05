@@ -98,6 +98,13 @@ jobs:
         run: |
           set -euo pipefail
           old_head=$(git rev-parse HEAD)
+          # README.md is fork-owned: when upstream edits it, keep the fork's version.
+          # The attribute lives in .git/info, not .gitattributes: during a rebase git
+          # reads attributes from the upstream side, which does not have the entry.
+          info_dir="$(git rev-parse --git-common-dir)/info"
+          mkdir -p "$info_dir"
+          echo 'README.md merge=fork-owned' >> "$info_dir/attributes"
+          git config merge.fork-owned.driver 'cp %B %A'
           if git rebase upstream/main; then
             git push --force-with-lease=xinhao:"$old_head" origin xinhao
             # Housekeeping only: a gh failure here must not turn a good sync into a failed run.

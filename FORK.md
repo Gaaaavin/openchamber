@@ -105,6 +105,22 @@ git switch xinhao && git rebase main && git push --force-with-lease origin xinha
 Enable `git config rerere.enabled true` locally so recurring conflict
 resolutions are remembered.
 
+`README.md` is fork-owned: the fork replaces it with install instructions and
+a link to upstream, and upstream edits it about weekly. To rebase without a
+conflict every time, git needs a merge driver that keeps the fork version.
+The sync workflow sets it up per run; on a local clone do it once:
+
+```bash
+echo 'README.md merge=fork-owned' >> "$(git rev-parse --git-common-dir)/info/attributes"
+git config merge.fork-owned.driver 'cp %B %A'
+```
+
+It lives in `.git/info/attributes`, not in the versioned `.gitattributes`:
+during a rebase git reads attributes from the upstream side, which has no
+such entry, so a versioned attribute never fires (tested). Verified with a
+simulated upstream README edit: rebase clean, fork README kept, unrelated
+upstream changes kept, all patches replayed.
+
 Discipline: commit directly to `xinhao`, `git pull --rebase` before starting
 work, and do not leave unpushed commits on `xinhao` overnight once the sync
 bot is live (it rewrites history).
@@ -115,7 +131,8 @@ bot is live (it rewrites history).
 |---|-------|-------|--------|
 | 0a | Fork workflow `fork-sync.yml` (sync + release + cask bump in one file) | `.github/workflows/fork-sync.yml` | DONE |
 | 0b | Desktop seams: ad-hoc signed build (`--config.mac.identity=-`, `--config.mac.notarize=false`, `--config.extraMetadata.forkRelease=<tag>`); `electron-updater` off behind `ELECTRON_UPDATER_ENABLED`; update check reads this fork's GitHub releases and the dialog shows `brew upgrade --cask openchamber-xinhao` | `packages/electron/fork-release.mjs` (+ test), 4 `// FORK:` seams in `packages/electron/main.mjs`, 3 in `packages/ui/src/components/ui/UpdateDialog.tsx` | DONE |
-| 0c | Web seams: update check + `openchamber update` target this fork's release tgz instead of npm `@openchamber/web` | `packages/web/server/lib/package-manager.js:12-22, 123-161, 657-667, 684-702, 751-797` | TODO (needed only before the first remote server) |
+| 0c | Web seams: update check + `openchamber update` target this fork's release tgz instead of npm `@openchamber/web` | `packages/web/server/lib/package-manager.js:12-22, 123-161, 657-667, 684-702, 751-797` | TODO (needed only before the first remote server; until then README says to re-run `npm install -g <tgz url>`) |
+| docs | `README.md` replaced with install instructions + link to upstream; fork-owned via merge driver (see Branch layout) | `README.md`, `fork-sync.yml` rebase step | DONE |
 | 1 | Clearer wording for assistant-turn errors | `packages/ui/src/components/chat/ChatMessage.tsx:681-698` | TODO |
 | 2 | Live TPS readout in composer status bar (streamed-delta estimate, modelled on JDScript/opencode) | `packages/ui/src/components/chat/ComposerStatusBar.tsx` (via `leftAccessory` or a sibling component; avoid editing `ChatInput.tsx` body, it is a 3000-line conflict hot spot) | TODO |
 
