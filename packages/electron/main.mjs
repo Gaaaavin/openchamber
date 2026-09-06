@@ -21,7 +21,9 @@ import { checkForDesktopUpdate } from './updater-check.mjs';
 import { resolveUpdaterChannel } from './updater-channel.mjs';
 import { resolveUpdaterFeed } from './updater-feed.mjs';
 // FORK: Homebrew-distributed unsigned build; see fork-release.mjs.
-import { ELECTRON_UPDATER_ENABLED, FORK_UPDATE_COMMAND, checkForkRelease, readForkRelease } from './fork-release.mjs';
+import { ELECTRON_UPDATER_ENABLED, checkForkRelease, readForkRelease } from './fork-release.mjs';
+// FORK: Keep Homebrew process mechanics out of the upstream Electron entrypoint.
+import { appBundleFromExecutable, runForkBrewUpgrade } from './fork-brew-upgrade.mjs';
 import {
   buildLinuxInstalledApps,
   buildLinuxOpenSpecs,
@@ -4586,9 +4588,26 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
     }
 
     case 'desktop_download_and_install_update':
-      // FORK: nothing to download in-app; Homebrew replaces the bundle.
+      // FORK: Homebrew replaces the bundle. Refresh + download in-app, then hand off to a detached `brew upgrade` that quits us and relaunches the new bundle.
       if (!ELECTRON_UPDATER_ENABLED) {
-        throw new Error(`This build is installed by Homebrew. Run: ${FORK_UPDATE_COMMAND}`);
+        await runForkBrewUpgrade({
+          appBundle: appBundleFromExecutable(app.getPath('exe')),
+          logPath: path.join(path.dirname(log.transports.file.getFile().path), 'brew-upgrade.log'),
+          onStatus: (status) => emitToAllWindows('openchamber:fork-update-status', status),
+          beforeHandoff: () => {
+            // Let brew's quit request through the macOS confirmation dialog;
+            // restore the guards if the app is still here afterwards.
+            const previous = { quitRequested: state.quitRequested, quitConfirmed: state.quitConfirmed };
+            state.quitRequested = true;
+            state.quitConfirmed = true;
+            state.quitConfirmationPending = false;
+            return () => {
+              state.quitRequested = previous.quitRequested;
+              state.quitConfirmed = previous.quitConfirmed;
+            };
+          },
+        });
+        return { handedOff: true };
       }
       assertUpdaterCapability({ packaged: app.isPackaged });
       if (!state.pendingUpdate) {

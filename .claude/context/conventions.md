@@ -16,6 +16,7 @@
 - Follow upstream `AGENTS.md` and `.claude/skills/` for any code change; read the nearest `DOCUMENTATION.md`.
 - Keep patches out of `packages/ui/src/components/chat/ChatInput.tsx` (3000+ lines, high churn) where possible; prefer new files and `// FORK:`-marked seams.
 - Fork-owned UI replacements live in a `fork/` subdirectory next to the upstream file they replace and export the same component name, so the seam is a single import-path change (see `components/chat/fork/SessionErrorNotice.tsx`). Fork UI strings go in `lib/i18n/messages/fork.i18n.ts` (`fork.*` keys, all 12 locales, real translations) and are spread into each locale file with one import + one spread line, the same way `linear-panel.i18n.ts` is.
+- Fork desktop logic lives in `packages/electron/fork-*.mjs` with `node:test` tests; `main.mjs` gets only narrow `// FORK:` call sites.
 - OpenChamber's own guesses about session state (no reply yet, waiting) are never styled as errors; only errors OpenCode reports (`session.error`, `message.info.error`) use `--status-error*`. Escalate a guess only after an authoritative server check.
 - One commit per patch on `xinhao`; `git pull --rebase` before work; no unpushed commits left on `xinhao` once the sync bot exists.
 - `origin` uses HTTPS because SSH port 22 to GitHub was blocked on the setup network.

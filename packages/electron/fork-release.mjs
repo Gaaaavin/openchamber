@@ -1,17 +1,18 @@
 // FORK: Gaaaavin/openchamber ships ad-hoc-signed macOS builds through the
 // Homebrew cask `openchamber-xinhao`. electron-updater cannot verify or install
 // an unsigned payload on macOS, so the desktop update check reads this fork's
-// GitHub releases and hands the user a `brew upgrade` command instead of
-// downloading anything. Flip ELECTRON_UPDATER_ENABLED once builds are signed
+// GitHub releases and hands the UI Homebrew update metadata instead of using
+// electron-updater. Flip ELECTRON_UPDATER_ENABLED once builds are signed
 // and notarized again; every upstream updater path stays intact behind it.
 import fs from 'node:fs';
+import { FORK_CASK } from './fork-brew-upgrade.mjs';
 
 export const ELECTRON_UPDATER_ENABLED = false;
 
 const FORK_REPO = 'Gaaaavin/openchamber';
 const FORK_RELEASES_URL = `https://github.com/${FORK_REPO}/releases`;
 const FORK_PACKAGE_MANAGER = 'homebrew';
-export const FORK_UPDATE_COMMAND = 'brew upgrade --cask openchamber-xinhao';
+export const FORK_UPDATE_COMMAND = `brew upgrade --cask ${FORK_CASK}`;
 
 const LATEST_RELEASE_API_URL = `https://api.github.com/repos/${FORK_REPO}/releases/latest`;
 
