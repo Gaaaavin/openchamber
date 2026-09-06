@@ -15,6 +15,7 @@ import { dropSessionCaches } from "./session-cache"
 import { stripSessionDiffSnapshots } from "./sanitize"
 import { syncDebug } from "./debug"
 import { shouldSkipStaleSessionEvent } from "./session-event-freshness"
+import { keepPendingRevert } from "./fork/revert-gate" // FORK
 import {
   compareMessagesChronologically,
   findMessageIndex,
@@ -283,7 +284,7 @@ export function applyDirectoryEvent(
       }
 
       if (result.found) {
-        sessions[result.index] = info
+        sessions[result.index] = keepPendingRevert(sessions[result.index], info) // FORK: preserve pending revert marker
       } else {
         sessions.splice(result.index, 0, info)
         trimSessions(draft)
