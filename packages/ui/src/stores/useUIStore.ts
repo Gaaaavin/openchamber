@@ -1323,7 +1323,7 @@ export const useUIStore = create<UIStore>()(
         stickyUserHeader: false,
         promptNavigatorEnabled: true,
         showSplitAssistantMessageActions: false,
-        allowPromptingSubagentSessions: false,
+        allowPromptingSubagentSessions: true, // FORK: subagent sessions are promptable (and stoppable) by default
         draftStartersVisible: true,
         isExpandedInput: false,
         reportUsage: true,
