@@ -14,6 +14,8 @@ import { copyTextToClipboard } from '@/lib/clipboard';
 import { openExternalUrl } from '@/lib/url';
 import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
 import { runtimeFetch } from '@/lib/runtime-fetch';
+// FORK: Homebrew update behavior lives in a fork-owned component.
+import { HomebrewUpdatePanel } from '@/components/ui/fork/HomebrewUpdatePanel';
 
 type WebUpdateState = 'idle' | 'updating' | 'restarting' | 'reconnecting' | 'error';
 
@@ -416,8 +418,18 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
             </div>
           )}
 
+          {/* FORK: Homebrew desktop updates run and report progress through the native shell. */}
+          {desktopUsesPackageManager && (
+            <HomebrewUpdatePanel
+              updateCommand={updateCommand}
+              downloading={downloading}
+              error={error}
+              onUpdate={onDownload}
+            />
+          )}
+
           {/* Web runtime fallback command */}
-          {((isWebRuntime && webUpdateState === 'error') || desktopUsesPackageManager) && (
+          {isWebRuntime && webUpdateState === 'error' && (
             <div className="space-y-2 mt-4">
               <div className="flex items-center gap-2 typography-meta text-muted-foreground">
                 <Icon name="terminal" className="h-4 w-4" />
@@ -448,7 +460,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
           )}
 
           {/* Desktop progress bar */}
-          {!isWebRuntime && !isMobileRuntime && downloading && (
+          {/* FORK: Homebrew progress is rendered by HomebrewUpdatePanel. */}
+          {!isWebRuntime && !isMobileRuntime && !desktopUsesPackageManager && downloading && (
             <div className="space-y-2 mt-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">{t('updateDialog.status.downloadingPayload')}</span>
@@ -464,7 +477,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
           )}
 
           {/* Error display */}
-          {(error || webError) && (
+          {/* FORK: HomebrewUpdatePanel owns package-manager errors to avoid duplicate messages. */}
+          {!desktopUsesPackageManager && (error || webError) && (
             <div className="p-3 mt-4 bg-[var(--status-error-background)] border border-[var(--status-error-border)] rounded-lg">
               <p className="text-sm text-[var(--status-error)]">{error || webError}</p>
             </div>
@@ -495,7 +509,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
               </button>
             )}
 
-            {!isWebRuntime && !isMobileRuntime && downloading && (
+            {/* FORK: HomebrewUpdatePanel owns its in-progress state. */}
+            {!isWebRuntime && !isMobileRuntime && !desktopUsesPackageManager && downloading && (
               <button
                 disabled
                 className="flex items-center justify-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-[var(--primary-base)]/50 text-[var(--primary-foreground)] cursor-not-allowed"
@@ -505,7 +520,8 @@ export const UpdateDialog: React.FC<UpdateDialogProps> = ({
               </button>
             )}
 
-            {!isWebRuntime && !isMobileRuntime && downloaded && (
+            {/* FORK: Homebrew relaunches the app itself; never show the upstream restart action. */}
+            {!isWebRuntime && !isMobileRuntime && !desktopUsesPackageManager && downloaded && (
               <button
                 onClick={onRestart}
                 className="flex items-center justify-center gap-2 px-5 py-2 rounded-md text-sm font-medium bg-[var(--status-success)] text-white hover:opacity-90 transition-opacity"
