@@ -57,6 +57,7 @@ import { useProviderLogo } from '@/hooks/useProviderLogo';
 import { getAgentColor } from '@/lib/agentColors';
 import { isCapacitorMobileApp } from '@/apps/mobileNativeChrome';
 import { WorktreeRequiresGitRepositoryError } from '@/lib/worktrees/worktreeCreate';
+import { useRevertPending } from '@/sync/fork/revert-gate'; // FORK
 
 
 const CONTAIN_LAYOUT_STYLE = { contain: 'layout' as const, transform: 'translateZ(0)' };
@@ -460,7 +461,8 @@ const writeRevealedToolIds = (messageId: string, value: Set<string>): void => {
     revealedToolIdsByMessage.set(messageId, new Set(value));
 };
 
-const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobile, alwaysShowActions = isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, contextPinned, contextPinPending, onToggleContextPin, userActionsMode = 'inline', stickyUserHeaderEnabled = true }: {
+const UserMessageBody = React.memo(({ sessionId, messageId, parts, messageCreatedAt, isMobile, alwaysShowActions = isMobile, hasTouchInput, hasTextContent, onCopyMessage, copiedMessage, onShowPopup, agentMention, onRevert, onFork, contextPinned, contextPinPending, onToggleContextPin, userActionsMode = 'inline', stickyUserHeaderEnabled = true }: { // FORK
+    sessionId?: string; // FORK
     messageId: string;
     parts: Part[];
     messageCreatedAt?: number | null;
@@ -481,6 +483,10 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
     stickyUserHeaderEnabled?: boolean;
 }) => {
     const { locale, t } = useI18n();
+    // FORK: session-scoped pending state
+    const revertPending = useRevertPending(sessionId);
+    const isThisRevertPending = revertPending?.messageId === messageId;
+    const revertLabel = revertPending?.kind === 'unrevert' ? t('fork.revert.restoring') : t('fork.revert.pending');
     const chatSurfaceMode = useChatSurfaceMode();
     const timeFormatPreference = useUIStore((state) => state.timeFormatPreference);
     const [copyHintVisible, setCopyHintVisible] = React.useState(false);
@@ -622,22 +628,25 @@ const UserMessageBody = React.memo(({ messageId, parts, messageCreatedAt, isMobi
                 {onRevert && (
                 <Tooltip>
                     <TooltipTrigger asChild>
+                        {/* FORK: pending revert control */}
                         <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-primary/50"
-                                aria-label={t('chat.messageBody.actions.revertAria')}
+                                disabled={Boolean(revertPending)}
+                                aria-busy={isThisRevertPending || undefined}
+                                aria-label={revertPending ? revertLabel : t('chat.messageBody.actions.revertAria')}
                                 onPointerDown={(event) => event.stopPropagation()}
                                 onClick={(event) => {
                                     event.stopPropagation();
                                     onRevert();
                                 }}
                             >
-                                <Icon name="arrow-go-back" className="h-3 w-3" />
+                                <Icon name={isThisRevertPending ? "loader-4" : "arrow-go-back"} className={cn("h-3 w-3", isThisRevertPending && "animate-spin")} /> {/* FORK */}
                             </Button>
                         </TooltipTrigger>
-                        <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.revert')}</TooltipContent>
+                        <TooltipContent sideOffset={6}>{revertPending ? revertLabel : t('chat.messageBody.actions.revert')}</TooltipContent> {/* FORK */}
                     </Tooltip>
                 )}
                 {effectiveOnFork && (
@@ -2299,6 +2308,7 @@ const MessageBody = React.memo(({ isUser, ...props }: MessageBodyProps) => {
     if (isUser) {
         return (
             <UserMessageBody
+                sessionId={props.sessionId} // FORK
                 messageId={props.messageId}
                 parts={props.parts}
                 messageCreatedAt={props.messageCreatedAt}
