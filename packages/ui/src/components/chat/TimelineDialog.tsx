@@ -16,6 +16,7 @@ import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
 import { getFullText, getMessagePreview } from './lib/messagePreview';
 import { useDeviceInfo } from '@/lib/device';
 import { cn } from '@/lib/utils';
+import { useRevertPending } from '@/sync/fork/revert-gate'; // FORK
 
 interface TimelineDialogProps {
     open: boolean;
@@ -40,6 +41,9 @@ export const TimelineDialog: React.FC<TimelineDialogProps> = ({
 }) => {
     const { t } = useI18n();
     const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
+    // FORK: session-scoped pending state
+    const revertPending = useRevertPending(currentSessionId ?? undefined);
+    const revertLabel = revertPending?.kind === 'unrevert' ? t('fork.revert.restoring') : t('fork.revert.pending');
     const messages = useSessionMessageRecords(currentSessionId ?? '');
     const revertToMessage = useSessionUIStore((state) => state.revertToMessage);
     const forkFromMessage = useSessionUIStore((state) => state.forkFromMessage);
@@ -357,19 +361,23 @@ export const TimelineDialog: React.FC<TimelineDialogProps> = ({
                                             <div className={cn("gap-1", alwaysShowActions ? "flex" : "hidden group-hover:flex")}>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
+                                                        {/* FORK: pending revert control */}
                                                         <button
                                                             type="button"
-                                                            className="h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                                                            className="h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                                                            disabled={Boolean(revertPending)}
+                                                            aria-busy={revertPending?.messageId === message.info.id || undefined}
+                                                            aria-label={revertPending ? revertLabel : t('chat.timeline.actions.revertFromHere')}
                                                             onClick={async (e) => {
                                                                 e.stopPropagation();
                                                                 await revertToMessage(currentSessionId, message.info.id);
                                                                 onOpenChange(false);
                                                             }}
                                                         >
-                                                            <Icon name="arrow-go-back" className="h-4 w-4" />
+                                                            <Icon name={revertPending?.messageId === message.info.id ? "loader-4" : "arrow-go-back"} className={cn("h-4 w-4", revertPending?.messageId === message.info.id && "animate-spin")} /> {/* FORK */}
                                                         </button>
                                                     </TooltipTrigger>
-                                                    <TooltipContent sideOffset={6}>{t('chat.timeline.actions.revertFromHere')}</TooltipContent>
+                                                    <TooltipContent sideOffset={6}>{revertPending ? revertLabel : t('chat.timeline.actions.revertFromHere')}</TooltipContent> {/* FORK */}
                                                 </Tooltip>
 
                                                 <Tooltip>

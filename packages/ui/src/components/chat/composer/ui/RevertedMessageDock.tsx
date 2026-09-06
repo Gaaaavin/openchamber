@@ -17,6 +17,7 @@ import { isSyntheticPart } from '@/lib/messages/synthetic';
 import { cn } from '@/lib/utils';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useDirectorySync } from '@/sync/sync-context';
+import { useRevertPending } from '@/sync/fork/revert-gate'; // FORK
 import {
     EMPTY_REVERTED_MESSAGE_DOCK_STATE,
     buildRevertedMessageDockState,
@@ -55,6 +56,9 @@ type RevertedMessageDockProps = {
 
 export const RevertedMessageDock: React.FC<RevertedMessageDockProps> = React.memo(({ sessionId, directory }) => {
     const { t } = useI18n();
+    // FORK: session-scoped pending state
+    const revertPending = useRevertPending(sessionId ?? undefined);
+    const pendingLabel = revertPending?.kind === 'unrevert' ? t('fork.revert.restoring') : t('fork.revert.pending');
     const revertToMessage = useSessionUIStore((s) => s.revertToMessage);
     const forkFromMessage = useSessionUIStore((s) => s.forkFromMessage);
     const handleSlashRedo = useSessionUIStore((s) => s.handleSlashRedo);
@@ -135,6 +139,13 @@ export const RevertedMessageDock: React.FC<RevertedMessageDockProps> = React.mem
                         aria-hidden="true"
                     />
                 </button>
+                {/* FORK: in-progress hint while the marker is optimistic */}
+                {revertPending ? (
+                    <div className="flex items-center gap-1.5 px-3 pb-2 typography-meta text-muted-foreground" role="status">
+                        <Icon name="loader-4" className="h-3 w-3 animate-spin" aria-hidden="true" />
+                        {pendingLabel}
+                    </div>
+                ) : null}
                 {!collapsed && (
                     <div className="px-3 pb-3 flex flex-col gap-1.5 max-h-[10.5rem] overflow-y-auto">
                         {items.map((item) => (
@@ -146,7 +157,7 @@ export const RevertedMessageDock: React.FC<RevertedMessageDockProps> = React.mem
                                     type="button"
                                     variant="secondary"
                                     size="xs"
-                                    disabled={Boolean(restoringId || forkingId)}
+                                    disabled={Boolean(revertPending || restoringId || forkingId)} // FORK
                                     onClick={() => { void handleFork(item.id); }}
                                 >
                                     {forkingId === item.id ? (
@@ -160,7 +171,8 @@ export const RevertedMessageDock: React.FC<RevertedMessageDockProps> = React.mem
                                     type="button"
                                     variant="secondary"
                                     size="xs"
-                                    disabled={Boolean(restoringId || forkingId)}
+                                    disabled={Boolean(revertPending || restoringId || forkingId)} // FORK
+                                    aria-busy={restoringId === item.id || undefined} // FORK
                                     onClick={() => { void handleRestore(item.id); }}
                                 >
                                     {restoringId === item.id ? (
