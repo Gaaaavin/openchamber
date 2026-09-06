@@ -135,6 +135,7 @@ bot is live (it rewrites history).
 | docs | `README.md` replaced with install instructions + link to upstream; fork-owned via merge driver (see Branch layout) | `README.md`, `fork-sync.yml` rebase step | DONE |
 | 1 | Reply-wait notice: replaces the red "OpenCode did not start a reply" guess with a connection-aware waiting state (2 s muted spinner → 20 s server-confirmed warning with Send again / Check again / Status report). Fixes upstream's `completed ?? created` timestamp bug that made the 5 s grace 0 s for optimistic messages. Status report gains connection phase + viewed-session local/server status | `packages/ui/src/components/chat/fork/SessionErrorNotice.tsx` (+ test), `packages/ui/src/lib/i18n/messages/fork.i18n.ts`, one import seam in `ChatContainer.tsx:32`, 2 lines per locale file, `// FORK:` block in `lib/openCodeStatus.ts` | DONE |
 | 2 | Live TPS readout in the floating "working" chip above the composer (`StatusRow`), shown only while the assistant works. Port of JDScript/opencode `fork-tps` (itself a port of the MIT `opencode-tps` TUI plugin, commit `3ecf08a82` there): 1.5 s burst gap, UTF-8 bytes / 5 estimate, dash when nothing is generating. Deviations from the plugin, both tuned after real use: 15 s window (not 5 s) and a 3 s time-constant EMA on the displayed value (`WINDOW_MS`, `SMOOTHING_TAU_MS` in `tps-math.ts`). Fed from sync-store text growth, no per-delta re-render, 1 Hz tick | `packages/ui/src/components/chat/fork/LiveTps.tsx`, `fork/tps-math.ts` (+ tests), 2 `// FORK:` lines in `StatusRow.tsx`, keys `fork.tps.*` in `fork.i18n.ts` | DONE |
+| 3 | Revert gate: one revert/undo/redo mutation per session at a time. Upstream set the `session.revert` marker and the composer text optimistically with no pending state, so a second click (or a `session.updated` echo from the abort revert itself issues, which replaces the local session wholesale) bounced the reverted tail between the composer and the message list. Now every entrypoint (message button, timeline, dock restore/redo, `/undo`, `/redo`) is wrapped in `gatedRevert`; later calls during the window are dropped, the revert buttons are disabled with a spinner on the clicked one, the dock shows "Reverting…"/"Restoring…", and the event reducer keeps the local `revert` field while our own request is in flight (the SDK response or rollback ends the window) | `packages/ui/src/sync/fork/revert-gate.ts` (+ test); `// FORK` lines in `sync/session-ui-store.ts`, `sync/event-reducer.ts`, `chat/message/MessageBody.tsx`, `chat/ChatMessage.tsx`, `chat/TimelineDialog.tsx`, `chat/composer/ui/RevertedMessageDock.tsx`; keys `fork.revert.*` | DONE |
 
 Keep patches out of hot files where possible; prefer new files and narrow,
 `// FORK:`-marked seams (same approach as JDScript/opencode). Prefer build-time
@@ -276,3 +277,11 @@ a `v*` tag (`release.yml`, `vscode-extension.yml`) or a commit to `main`
    arithmetic: `git -C ../opencode show jdscript/jdscript:packages/app/src/components/fork-tps-math.ts`.
 6. Before the first remote server: patch 0c; install the fork tgz on the
    remote; configure the Remote Instance as **external**.
+7. Patch 3 (revert gate) is done. Not done: the composer can still send while
+   a revert is pending (the reverted text is already in the input); a send
+   clears the local marker (`session-actions.ts` ~1889) and the two requests
+   race server-side. Rare in practice because the window is the revert
+   round-trip; gate the send button on `useRevertPending` if it bites.
+   Other paths that replace `state.session` wholesale (bootstrap, reconnect
+   recovery, cold `session.get`) are not guarded on purpose: none runs during
+   a normal revert.
