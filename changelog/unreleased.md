@@ -6,7 +6,7 @@ title: Turn stats in work status
 
 ### New
 
-- **Turn stats:** The work status panel now shows response speed, model and tool time, tokens, and reported cost after a turn finishes. It's on by default; hide it in the panel settings (thanks to @alvins82).
+- **Turn stats:** The work status panel now shows response speed, model and tool time, tokens, and reported cost after a turn finishes. It's enabled by default (thanks to @alvins82).
 - **Projects:** Move project actions, worktree setup commands, and draft starters into the repository for teammates to use. Repository commands ask for trust before running, and ask again when they change.
 - Plans: Move plans into the repository, or point the Plans tab at an existing folder of Markdown files in your project.
 - Sessions: Search projects by name or path in the new-session project picker on web and desktop (thanks to @maximtop).

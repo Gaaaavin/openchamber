@@ -1050,7 +1050,6 @@ const TaskToolSummary: React.FC<{
         <div
             className={cn(
                 'relative pr-2 pb-2 pt-2 space-y-2 pl-[1.4375rem]',
-                entries.length > 0 && 'pt-0',
                 'before:absolute before:left-[0.4375rem] before:w-px before:bg-border/80 before:content-[""]',
                 'before:top-[-0.25rem] before:bottom-0'
             )}
