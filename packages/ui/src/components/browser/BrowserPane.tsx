@@ -588,6 +588,20 @@ const WebviewBrowser: React.FC<BrowserPaneProps> = ({ initialUrl, directory, tab
     }
   }, []);
 
+  React.useEffect(() => {
+    const handleZoom = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const action = event.detail;
+      const webview = webviewRef.current;
+      if (!webview || document.activeElement !== webview) return;
+      if (action === 'zoom-in') applyZoom(zoomLevel + ZOOM_STEP);
+      else if (action === 'zoom-out') applyZoom(zoomLevel - ZOOM_STEP);
+      else if (action === 'zoom-reset') applyZoom(0);
+    };
+    window.addEventListener('openchamber:zoom', handleZoom);
+    return () => window.removeEventListener('openchamber:zoom', handleZoom);
+  }, [applyZoom, zoomLevel]);
+
   const clearBrowsingData = React.useCallback((what: 'cookies' | 'cache') => {
     void invokeDesktopCommand('desktop_browser_clear_data', {
       partition: BROWSER_PARTITION,

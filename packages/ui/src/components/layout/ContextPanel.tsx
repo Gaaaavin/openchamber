@@ -52,7 +52,7 @@ import {
 import { getContextSurfaceWidthFraction } from '@/lib/surfaces/registry';
 import { isTerminalEventTarget } from '@/lib/terminalFocus';
 
-const CONTEXT_PANEL_MIN_WIDTH = 380;
+const CONTEXT_PANEL_MIN_WIDTH = 320;
 const CONTEXT_PANEL_MAX_WIDTH = 1400;
 const CONTEXT_PANEL_DEFAULT_WIDTH = 600;
 const RESIZE_FOLLOW_INTERVAL_MS = 100;
@@ -484,10 +484,21 @@ export const ContextPanel: React.FC = () => {
   const [availablePanelAreaWidth, setAvailablePanelAreaWidth] = React.useState<number | null>(null);
   const activeModeForWidth = activeTab?.mode ?? null;
   const manualWidth = activeModeForWidth ? panelState?.widthByMode?.[activeModeForWidth] : undefined;
+  const manualWidthFraction = activeModeForWidth ? panelState?.widthFractionByMode?.[activeModeForWidth] : undefined;
   const widthFraction = activeModeForWidth ? getContextSurfaceWidthFraction(activeModeForWidth) : 0.5;
   const widthFallbackBase = availablePanelAreaWidth
     ?? (typeof window !== 'undefined' ? window.innerWidth : CONTEXT_PANEL_DEFAULT_WIDTH * 2);
-  const width = clampWidth(manualWidth ?? Math.round(widthFraction * widthFallbackBase));
+  const effectiveManualWidth = manualWidthFraction != null && availablePanelAreaWidth != null
+    ? Math.round(manualWidthFraction * availablePanelAreaWidth)
+    : manualWidth;
+  const width = clampWidth(effectiveManualWidth ?? Math.round(widthFraction * widthFallbackBase));
+
+  // Convert legacy pixel-only preferences to a ratio the first time the
+  // available area is known, so existing users also get responsive sizing.
+  React.useEffect(() => {
+    if (!directoryKey || !activeModeForWidth || manualWidthFraction != null || manualWidth == null || availablePanelAreaWidth == null) return;
+    setContextPanelWidth(directoryKey, activeModeForWidth, manualWidth, availablePanelAreaWidth);
+  }, [activeModeForWidth, availablePanelAreaWidth, directoryKey, manualWidth, manualWidthFraction, setContextPanelWidth]);
   const chatSessionIDs = React.useMemo(() => {
     const ids: string[] = [];
     for (const tab of tabs) {
@@ -592,6 +603,7 @@ export const ContextPanel: React.FC = () => {
     // Apply the final width once, letting the regular 200ms width transition
     // carry the panel to the release position.
     const finalWidth = clampWidthForDrag(resizingWidthRef.current ?? width);
+    const availableWidth = resizeAvailableWidthRef.current;
     resizingWidthRef.current = null;
     resizeAvailableWidthRef.current = null;
     if (resizeFollowTimerRef.current !== null) {
@@ -600,7 +612,7 @@ export const ContextPanel: React.FC = () => {
     }
     document.documentElement.style.cursor = '';
     if (directoryKey && activeModeForWidth) {
-      setContextPanelWidth(directoryKey, activeModeForWidth, finalWidth);
+      setContextPanelWidth(directoryKey, activeModeForWidth, finalWidth, availableWidth ?? undefined);
     }
     setIsResizing(false);
     activeResizePointerIDRef.current = null;

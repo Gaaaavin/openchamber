@@ -1076,7 +1076,9 @@ export const Header: React.FC = () => {
   // `--oc-titlebar-left-inset` so the sidebar strip can mirror it.
   const titlebarLeftInset = React.useMemo(() => {
     if (isDesktopApp && isMacPlatform && !isDesktopWindowFullscreen) {
-      return '5.5rem';
+      // Native traffic lights have a fixed physical footprint. Keep this
+      // clearance in pixels so shrinking the interface cannot overlap them.
+      return '88px';
     }
     if (isTabletStandalonePwa) {
       return 'max(calc(0.75rem + var(--oc-wco-left-inset, 0px)), 5.5rem)';
@@ -1170,8 +1172,10 @@ export const Header: React.FC = () => {
       // Left inset is handled by the no-drag spacer (see renderDesktop); only
       // the right inset / titlebar height are owned by the window-controls overlay.
       paddingRight: 'calc(0.75rem + var(--oc-wco-right-inset, 0px))',
-      minHeight: 'max(3rem, var(--oc-wco-titlebar-height, 0px))',
-      height: 'max(3rem, var(--oc-wco-titlebar-height, 0px))',
+      // Keep the titlebar safe area in physical pixels. Interface zoom may
+      // shrink rem content, but native macOS traffic lights must never overlap it.
+      minHeight: 'max(56px, var(--oc-wco-titlebar-height, 0px))',
+      height: 'max(56px, var(--oc-wco-titlebar-height, 0px))',
     };
   }, [isDesktopApp, isVSCode, usesFramelessChrome, windowControlsSide]);
 

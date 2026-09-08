@@ -91,7 +91,10 @@ type MenuAction =
   | 'previous-project'
   | 'next-project'
   | 'help-dialog'
-  | 'download-logs';
+  | 'download-logs'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'zoom-reset';
 
 export const useMenuActions = (
   onToggleMemoryDebug?: () => void
@@ -269,6 +272,12 @@ export const useMenuActions = (
           }
           break;
         }
+
+        case 'zoom-in':
+        case 'zoom-out':
+        case 'zoom-reset':
+          window.dispatchEvent(new CustomEvent('openchamber:zoom', { detail: action }));
+          break;
 
         case 'theme-light':
           setThemeMode('light');
