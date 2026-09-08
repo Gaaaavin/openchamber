@@ -4,6 +4,15 @@ import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  'chat.liveActivity.title': 'Atividade',
+  'chat.liveActivity.changedFile': '{count} arquivo alterado',
+  'chat.liveActivity.changedFiles': '{count} arquivos alterados',
+  'chat.liveActivity.explored': 'Base de código explorada',
+  'chat.liveActivity.ranCommand': '{count} comando executado',
+  'chat.liveActivity.ranCommands': '{count} comandos executados',
+  'chat.liveActivity.researched': 'Pesquisa na web realizada',
+  'chat.liveActivity.usedSubagent': '{count} subagente utilizado',
+  'chat.liveActivity.usedSubagents': '{count} subagentes utilizados',
   'sessions.sidebar.projectAction.active': 'Ação do projeto em execução',
   ...settingsDict,
   ...linearIssuePickerI18n['pt-BR'],

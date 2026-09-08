@@ -4,6 +4,15 @@ import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  'chat.liveActivity.title': '活動',
+  'chat.liveActivity.changedFile': '變更了 {count} 個檔案',
+  'chat.liveActivity.changedFiles': '變更了 {count} 個檔案',
+  'chat.liveActivity.explored': '探索了程式碼庫',
+  'chat.liveActivity.ranCommand': '執行了 {count} 條命令',
+  'chat.liveActivity.ranCommands': '執行了 {count} 條命令',
+  'chat.liveActivity.researched': '進行了網路研究',
+  'chat.liveActivity.usedSubagent': '使用了 {count} 個子代理',
+  'chat.liveActivity.usedSubagents': '使用了 {count} 個子代理',
   'sessions.sidebar.projectAction.active': '專案操作正在執行',
   ...settingsDict,
   ...linearIssuePickerI18n['zh-TW'],

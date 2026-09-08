@@ -3,6 +3,15 @@ import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 
 export const dict = {
+  'chat.liveActivity.title': 'Activité',
+  'chat.liveActivity.changedFile': '{count} fichier modifié',
+  'chat.liveActivity.changedFiles': '{count} fichiers modifiés',
+  'chat.liveActivity.explored': 'Base de code explorée',
+  'chat.liveActivity.ranCommand': '{count} commande exécutée',
+  'chat.liveActivity.ranCommands': '{count} commandes exécutées',
+  'chat.liveActivity.researched': 'Recherche sur le web effectuée',
+  'chat.liveActivity.usedSubagent': '{count} sous-agent utilisé',
+  'chat.liveActivity.usedSubagents': '{count} sous-agents utilisés',
   'sessions.sidebar.projectAction.active': 'Action du projet en cours',
   ...settingsDict,
   ...linearIssuePickerI18n.fr,
