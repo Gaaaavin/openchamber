@@ -23,6 +23,7 @@ These provider IDs are currently dispatchable via `fetchQuotaForProvider(provide
 | Provider ID | Display name | Module | Auth aliases/keys |
 | --- | --- | --- | --- |
 | `claude` | Claude | `providers/claude/` | Claude Code Keychain entry, Claude Code credentials file, OpenCode `auth.json` (`anthropic`, `claude`), `CLAUDE_CODE_OAUTH_TOKEN` |
+| `cline-pass` | ClinePass | `providers/cline-pass.js` | `cline-pass` (API key under `key` or `token`) |
 | `codex` | Codex | `providers/codex.js` | `openai`, `codex`, `chatgpt` |
 | `command-code` | Command Code | `providers/command-code.js` | `command-code` OAuth/API credential in OpenCode `auth.json`, or `COMMAND_CODE_API_KEY` |
 | `cursor` | Cursor | `providers/cursor.js` | Environment/token files, OpenChamber-managed credentials, or explicit one-time Cursor import |
