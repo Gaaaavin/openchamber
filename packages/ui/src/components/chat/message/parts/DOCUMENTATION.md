@@ -82,6 +82,21 @@ within the session. The disclosure uses a finite 180ms height transition,
 respects reduced motion, and delegates end pinning to the existing timeline.
 It never calls scroll-to-bottom. Collapsed history does not mount its hidden
 message bodies; initial history loads do not animate collapse.
+Layout-effect replay after a Suspense hide/reveal must settle the requested
+height and retained children even when the expanded target did not change.
+Cleanup stops the animation, so a same-target early return can leave a cached
+pre-collapse height on the DOM indefinitely. Failed animations also settle;
+callbacks from cancelled, superseded animations never settle a newer target.
+
+The virtualizer also adds temporary end padding while compensating prepended
+history. The Bun patch for `@legendapp/list@3.3.10` stores that padding's CSSOM
+read-back value: Chromium rounds fractional pixel strings, so comparing the
+original input with `style.paddingBottom` can skip cleanup permanently. This
+leaves a phantom tail even when every Activity region is already zero-height.
+The patch covers both web entry points in ESM and CJS; its installed-controller
+regression tests live in `scripts/legend-list-padding.test.mjs`. Retain this
+fix when updating the dependency unless upstream has equivalent ownership and
+cleanup behavior. Chat padding and scroll policies do not compensate for it.
 
 The header retains its report when expanded and has no hover background. Its
 left inset matches sorted Activity. Diff deletions use the ASCII hyphen.
