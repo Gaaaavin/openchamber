@@ -48,7 +48,7 @@ export function LiveTurnActivity({ turn, hasLaterAssistant, expanded, onToggle, 
             <span className="shrink-0 font-semibold text-[var(--tools-title)]">{t('chat.liveActivity.title')}</span>
             {settled ? <Icon name={isExpanded ? 'arrow-down-s' : 'arrow-right-s'} className="size-3 shrink-0" /> : null}
             {fileLabel ? (
-                <span className="flex min-w-0 items-center gap-1 typography-meta @min-[640px]:shrink-0">
+                <span className="flex min-w-0 items-center gap-1 typography-meta @min-[560px]:shrink-0">
                     <span className="truncate">{fileLabel}</span>
                     {summary?.hasCompleteDiff && (summary.additions > 0 || summary.deletions > 0) ? (
                         <span className="shrink-0 tabular-nums">
@@ -59,7 +59,7 @@ export function LiveTurnActivity({ turn, hasLaterAssistant, expanded, onToggle, 
                     ) : null}
                 </span>
             ) : null}
-            {details ? <span className="hidden min-w-0 flex-1 truncate text-left typography-meta @min-[640px]:inline" title={details}>{fileLabel ? '· ' : ''}{details}</span> : null}
+            {details ? <span className="hidden min-w-0 flex-1 truncate text-left typography-meta @min-[560px]:inline" title={details}>{fileLabel ? '· ' : ''}{details}</span> : null}
         </>
     );
     const headerClass = 'w-full justify-start normal-case !pl-px !pr-2 text-[var(--tools-description)] hover:!bg-transparent active:!bg-transparent';
