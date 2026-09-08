@@ -1,7 +1,7 @@
 /**
  * Dictation local-speech worker process.
  *
- * Hosts the sherpa-onnx native inference (Parakeet STT) in a separate process
+ * Hosts the sherpa-onnx native STT inference in a separate process
  * so ONNX decoding never blocks the main OpenChamber server. Communicates
  * with the parent over child_process IPC (advanced serialization, so Buffers
  * survive the trip as Uint8Array).
@@ -58,14 +58,22 @@ function getEngine(modelsDir, modelId) {
   }
   const modelDir = getLocalSttModelDir(modelsDir, modelId);
   const spec = getLocalSttModelSpec(modelId);
-  const created = new SherpaOfflineRecognizerEngine({
+  const engineConfig = {
     type: spec.type,
     encoder: path.join(modelDir, spec.files.encoder),
     decoder: path.join(modelDir, spec.files.decoder),
-    ...(spec.files.joiner ? { joiner: path.join(modelDir, spec.files.joiner) } : {}),
-    tokens: path.join(modelDir, spec.files.tokens),
-    numThreads: 2,
-  });
+  };
+  if (spec.type === 'qwen3_asr') {
+    engineConfig.convFrontend = path.join(modelDir, spec.files.convFrontend);
+    engineConfig.tokenizer = path.join(modelDir, spec.files.tokenizer);
+  } else {
+    if (spec.files.joiner) {
+      engineConfig.joiner = path.join(modelDir, spec.files.joiner);
+    }
+    engineConfig.tokens = path.join(modelDir, spec.files.tokens);
+    engineConfig.numThreads = 2;
+  }
+  const created = new SherpaOfflineRecognizerEngine(engineConfig);
   engines.set(key, created);
   return created;
 }

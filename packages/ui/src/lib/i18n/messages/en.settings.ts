@@ -1902,6 +1902,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': 'Match the voice to the language of the text',
   'settings.voice.page.field.followTextLanguageAria': 'Match the voice to the language of the text',
   'settings.voice.page.field.followTextLanguageInfo': 'When a reply is in another language, a voice for that language is used: a matching macOS voice, or a local model that downloads on first use.',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': 'Mandarin, English, and around 30 languages with automatic language detection and punctuation.',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2 (English)',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3 (25 European languages)',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base (multilingual)',
