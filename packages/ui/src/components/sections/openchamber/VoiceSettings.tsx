@@ -35,9 +35,20 @@ import { useLocalTTS } from '@/hooks/useLocalTTS';
 import { disposePreviewAudio } from './voicePreviewAudio';
 
 const LOCAL_STT_MODELS = [
+    // FORK: Qwen3-ASR is the default local model.
+    {
+        id: 'qwen3-asr-0.6b-int8',
+        labelKey: 'settings.voice.page.stt.model.qwen3Asr',
+        descriptionKey: 'settings.voice.page.stt.model.qwen3AsrDescription',
+        badgeKey: null,
+        accuracy: 5,
+        speed: 5,
+        size: '~960 MB',
+    },
     {
         id: 'parakeet-tdt-0.6b-v2-int8',
         labelKey: 'settings.voice.page.stt.model.parakeetV2',
+        descriptionKey: null,
         badgeKey: 'settings.voice.page.stt.badge.bestForEnglish',
         accuracy: 5,
         speed: 5,
@@ -46,6 +57,7 @@ const LOCAL_STT_MODELS = [
     {
         id: 'parakeet-tdt-0.6b-v3-int8',
         labelKey: 'settings.voice.page.stt.model.parakeetV3',
+        descriptionKey: null,
         badgeKey: 'settings.voice.page.stt.badge.bestForMultilingual',
         accuracy: 5,
         speed: 4,
@@ -54,6 +66,7 @@ const LOCAL_STT_MODELS = [
     {
         id: 'whisper-base-int8',
         labelKey: 'settings.voice.page.stt.model.whisperBase',
+        descriptionKey: null,
         badgeKey: null,
         accuracy: 3,
         speed: 3,
@@ -62,6 +75,7 @@ const LOCAL_STT_MODELS = [
     {
         id: 'whisper-tiny-int8',
         labelKey: 'settings.voice.page.stt.model.whisperTiny',
+        descriptionKey: null,
         badgeKey: null,
         accuracy: 2,
         speed: 4,
@@ -218,6 +232,11 @@ const LocalModelPicker = ({
                                         <RatingBar value={entry.speed} label={t('settings.voice.page.stt.meta.speed')} />
                                         <span className="typography-ui-compact tabular-nums text-muted-foreground">{entry.size}</span>
                                     </div>
+                                    {entry.descriptionKey ? (
+                                        <p className="typography-meta text-muted-foreground">
+                                            {tUnsafe(entry.descriptionKey)}
+                                        </p>
+                                    ) : null}
                                     {state?.downloadError ? (
                                         <p className="typography-meta text-[var(--status-error)]">{state.downloadError}</p>
                                     ) : null}

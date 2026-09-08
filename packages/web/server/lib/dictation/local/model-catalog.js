@@ -6,12 +6,27 @@
  * `type` selects the recognizer construction path in the worker:
  * - 'nemo_transducer': encoder/decoder/joiner transducer (Parakeet)
  * - 'whisper': encoder/decoder Whisper export
+ * - 'qwen3_asr': Qwen3-ASR encoder/decoder with tokenizer
  * `files` maps logical roles to file names inside the extracted directory.
  */
 
 import path from 'path';
 
 export const LOCAL_STT_MODEL_CATALOG = {
+  // FORK: Qwen3-ASR is the default local dictation model on Apple Silicon.
+  'qwen3-asr-0.6b-int8': {
+    type: 'qwen3_asr',
+    archiveUrl:
+      'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2',
+    extractedDir: 'sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25',
+    files: {
+      convFrontend: 'conv_frontend.onnx',
+      encoder: 'encoder.int8.onnx',
+      decoder: 'decoder.int8.onnx',
+      tokenizer: 'tokenizer',
+    },
+    description: 'Alibaba Qwen3-ASR 0.6B int8 (multilingual, auto-detected)',
+  },
   'parakeet-tdt-0.6b-v2-int8': {
     type: 'nemo_transducer',
     archiveUrl:
@@ -276,7 +291,7 @@ export const LOCAL_TTS_MODEL_CATALOG = {
   },
 };
 
-export const DEFAULT_LOCAL_STT_MODEL = 'parakeet-tdt-0.6b-v2-int8';
+export const DEFAULT_LOCAL_STT_MODEL = 'qwen3-asr-0.6b-int8';
 export const DEFAULT_LOCAL_TTS_MODEL = 'kokoro-en-v0_19';
 
 export const LOCAL_STT_MODEL_IDS = Object.keys(LOCAL_STT_MODEL_CATALOG);

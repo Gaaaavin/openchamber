@@ -1,5 +1,5 @@
 /**
- * Sherpa-onnx offline recognizer engine (NeMo transducer / Parakeet) plus a
+ * Sherpa-onnx offline recognizer engine (Qwen3-ASR, NeMo transducer, or Whisper) plus a
  * segment transcription session that decodes each segment exactly once, when
  * the segment is committed.
  *
@@ -15,9 +15,37 @@
 import { EventEmitter } from 'events';
 import { existsSync } from 'fs';
 import { randomUUID } from 'crypto';
+import { execFileSync } from 'child_process';
+import { availableParallelism } from 'os';
 
 import { loadSherpaOnnxNode } from './sherpa-loader.js';
 import { pcm16lePeakAbs, pcm16leToFloat32 } from '../audio.js';
+
+let cachedQwen3AsrThreads;
+
+function qwen3AsrThreads() {
+  if (cachedQwen3AsrThreads !== undefined) {
+    return cachedQwen3AsrThreads;
+  }
+
+  let detected;
+  if (process.platform === 'darwin') {
+    try {
+      detected = Number.parseInt(
+        execFileSync('sysctl', ['-n', 'hw.perflevel0.physicalcpu'], { encoding: 'utf8' }).trim(),
+        10,
+      );
+    } catch {
+      // Fall through to the portable CPU count.
+    }
+  }
+  if (!Number.isInteger(detected) || detected <= 0) {
+    detected = Math.min(4, availableParallelism());
+  }
+  // Qwen3-ASR benchmarks best at the M2 performance-core count; extra efficiency cores slow it down.
+  cachedQwen3AsrThreads = Math.max(2, Math.min(8, detected));
+  return cachedQwen3AsrThreads;
+}
 
 function assertFileExists(filePath, label) {
   if (!existsSync(filePath)) {
@@ -27,8 +55,9 @@ function assertFileExists(filePath, label) {
 
 export class SherpaOfflineRecognizerEngine {
   /**
-   * @param {{ type: 'nemo_transducer' | 'whisper',
-   *           encoder: string, decoder: string, joiner?: string, tokens: string,
+   * @param {{ type: 'nemo_transducer' | 'whisper' | 'qwen3_asr',
+   *           encoder: string, decoder: string, joiner?: string, tokens?: string,
+   *           convFrontend?: string, tokenizer?: string,
    *           numThreads?: number }} config
    */
   constructor(config) {
@@ -37,12 +66,31 @@ export class SherpaOfflineRecognizerEngine {
     if (config.type === 'nemo_transducer') {
       assertFileExists(config.joiner, 'offline joiner');
     }
-    assertFileExists(config.tokens, 'tokens');
+    if (config.type === 'qwen3_asr') {
+      assertFileExists(config.convFrontend, 'Qwen3-ASR convolution frontend');
+      assertFileExists(config.tokenizer, 'Qwen3-ASR tokenizer');
+    } else {
+      assertFileExists(config.tokens, 'tokens');
+    }
 
     const sherpa = loadSherpaOnnxNode();
 
     const modelConfig =
-      config.type === 'whisper'
+      config.type === 'qwen3_asr'
+        ? {
+            qwen3Asr: {
+              convFrontend: config.convFrontend,
+              encoder: config.encoder,
+              decoder: config.decoder,
+              tokenizer: config.tokenizer,
+              hotwords: '',
+            },
+            tokens: '',
+            numThreads: qwen3AsrThreads(),
+            provider: 'cpu',
+            debug: 0,
+          }
+        : config.type === 'whisper'
         ? {
             whisper: {
               encoder: config.encoder,

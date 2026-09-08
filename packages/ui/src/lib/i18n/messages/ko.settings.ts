@@ -1879,6 +1879,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': '텍스트 언어에 맞는 음성 사용',
   'settings.voice.page.field.followTextLanguageAria': '텍스트 언어에 맞는 음성 사용',
   'settings.voice.page.field.followTextLanguageInfo': '응답이 다른 언어이면 해당 언어의 음성을 사용합니다. 일치하는 macOS 음성 또는 처음 사용할 때 다운로드되는 로컬 모델입니다.',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': '중국어 표준어와 영어를 포함한 약 30개 언어를 지원하며 언어 자동 감지와 문장 부호를 제공합니다.',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2 (영어)',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3 (유럽 25개 언어)',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base (다국어)',

@@ -1879,6 +1879,8 @@ export const settingsDict = {
   "settings.voice.page.field.followTextLanguage": "Ajustar la voz al idioma del texto",
   "settings.voice.page.field.followTextLanguageAria": "Ajustar la voz al idioma del texto",
   "settings.voice.page.field.followTextLanguageInfo": "Si una respuesta está en otro idioma, se usa una voz para ese idioma: una voz de macOS adecuada o un modelo local que se descarga en el primer uso.",
+  "settings.voice.page.stt.model.qwen3Asr": "Qwen3-ASR 0.6B (int8)",
+  "settings.voice.page.stt.model.qwen3AsrDescription": "Mandarín, inglés y unos 30 idiomas, con detección automática del idioma y puntuación.",
   "settings.voice.page.stt.model.parakeetV2": "Parakeet v2 (inglés)",
   "settings.voice.page.stt.model.parakeetV3": "Parakeet v3 (25 idiomas europeos)",
   "settings.voice.page.stt.model.whisperBase": "Whisper base (multilingüe)",

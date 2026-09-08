@@ -1835,6 +1835,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': 'Stimme an die Sprache des Textes anpassen',
   'settings.voice.page.field.followTextLanguageAria': 'Stimme an die Sprache des Textes anpassen',
   'settings.voice.page.field.followTextLanguageInfo': 'Ist eine Antwort in einer anderen Sprache, wird eine Stimme für diese Sprache verwendet: eine passende macOS-Stimme oder ein lokales Modell, das beim ersten Einsatz geladen wird.',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': 'Mandarin, Englisch und rund 30 Sprachen mit automatischer Spracherkennung und Zeichensetzung.',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2 (Englisch)',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3 (25 europäische Sprachen)',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base (mehrsprachig)',

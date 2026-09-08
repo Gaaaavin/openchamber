@@ -1827,6 +1827,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': 'Sesi metnin diline göre seç',
   'settings.voice.page.field.followTextLanguageAria': 'Sesi metnin diline göre seç',
   'settings.voice.page.field.followTextLanguageInfo': 'Yanıt başka bir dildeyse o dil için bir ses kullanılır: uygun bir macOS sesi veya ilk kullanımda indirilen yerel bir model.',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': 'Mandarin Çincesi, İngilizce ve yaklaşık 30 dilde otomatik dil algılama ve noktalama desteği.',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2 (İngilizce)',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3 (25 Avrupa dili)',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base (çok dilli)',

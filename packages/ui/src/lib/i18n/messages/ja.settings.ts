@@ -1912,6 +1912,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': 'テキストの言語に合わせて音声を選ぶ',
   'settings.voice.page.field.followTextLanguageAria': 'テキストの言語に合わせて音声を選ぶ',
   'settings.voice.page.field.followTextLanguageInfo': '返答が別の言語の場合、その言語の音声を使います。対応する macOS の音声、または初回使用時にダウンロードされるローカルモデルです。',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': '中国語（標準語）、英語を含む約30言語に対応し、言語の自動検出と句読点の付与が可能です。',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2（英語）',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3（ヨーロッパ25言語）',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base（多言語）',
