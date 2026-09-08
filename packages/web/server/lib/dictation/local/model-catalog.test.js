@@ -1,11 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_LOCAL_STT_MODEL,
   DEFAULT_LOCAL_TTS_MODEL,
+  LOCAL_STT_MODEL_CATALOG,
   LOCAL_TTS_MODEL_CATALOG,
   getLocalSttModelSpec,
   getLocalTtsDefaultSpeaker,
   resolveLocalTtsModelForLanguage,
 } from './model-catalog.js';
+
+describe('local STT catalog', () => {
+  it('defaults to the complete Qwen3-ASR int8 model', () => {
+    expect(DEFAULT_LOCAL_STT_MODEL).toBe('qwen3-asr-0.6b-int8');
+    const spec = LOCAL_STT_MODEL_CATALOG[DEFAULT_LOCAL_STT_MODEL];
+    expect(spec.type).toBe('qwen3_asr');
+    expect(getLocalSttModelSpec(DEFAULT_LOCAL_STT_MODEL).requiredFiles).toEqual([
+      'conv_frontend.onnx',
+      'encoder.int8.onnx',
+      'decoder.int8.onnx',
+      'tokenizer',
+    ]);
+  });
+});
 
 describe('local TTS catalog', () => {
   it('keeps the selected model when it speaks the language', () => {

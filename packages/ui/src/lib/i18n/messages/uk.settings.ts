@@ -1879,6 +1879,8 @@ export const settingsDict = {
   "settings.voice.page.field.followTextLanguage": "Підбирати голос під мову тексту",
   "settings.voice.page.field.followTextLanguageAria": "Підбирати голос під мову тексту",
   "settings.voice.page.field.followTextLanguageInfo": "Якщо відповідь іншою мовою, використовується голос цієї мови: відповідний голос macOS або локальна модель, яка завантажується при першому використанні.",
+  "settings.voice.page.stt.model.qwen3Asr": "Qwen3-ASR 0.6B (int8)",
+  "settings.voice.page.stt.model.qwen3AsrDescription": "Мандаринська китайська, англійська та близько 30 мов з автоматичним визначенням мови й пунктуацією.",
   "settings.voice.page.stt.model.parakeetV2": "Parakeet v2 (англійська)",
   "settings.voice.page.stt.model.parakeetV3": "Parakeet v3 (25 європейських мов)",
   "settings.voice.page.stt.model.whisperBase": "Whisper base (мультимовна)",

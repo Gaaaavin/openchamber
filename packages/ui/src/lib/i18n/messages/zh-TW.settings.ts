@@ -1786,6 +1786,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': '依文字語言選擇語音',
   'settings.voice.page.field.followTextLanguageAria': '依文字語言選擇語音',
   'settings.voice.page.field.followTextLanguageInfo': '當回覆使用其他語言時，會使用該語言的語音：相符的 macOS 語音，或首次使用時下載的本機模型。',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': '支援國語、英語和約 30 種語言，可自動偵測語言並加上標點。',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2（英文）',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3（25 種歐洲語言）',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base（多語言）',

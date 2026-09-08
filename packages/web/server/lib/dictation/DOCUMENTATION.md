@@ -5,9 +5,9 @@ text-to-speech. The client streams 16 kHz mono PCM16 chunks (base64) over a
 WebSocket while the user speaks; the server buffers them and transcribes each
 segment exactly once, when the segment is committed.
 
-Transcription is deliberately not incremental. Parakeet is an offline model
-trained on whole utterances, so re-decoding the growing buffer to animate a
-live transcript costs O(n^2) work for a result the final decode replaces. The
+Transcription is deliberately not incremental. The local recognizers decode
+whole utterances, so re-decoding the growing buffer to animate a live
+transcript costs O(n^2) work for a result the final decode replaces. The
 composer shows no text while recording and inserts the full transcript on
 stop.
 
@@ -44,7 +44,8 @@ response carries `X-Speech-Model` and `X-Speech-Language`.
   splitting, silence suppression by PCM peak, partial-transcript
   concatenation, adaptive finalization timeout.
 - `service.js` — provider resolution and readiness. Providers:
-  - `local` (default): sherpa-onnx Parakeet TDT in a forked worker process.
+  - `local` (default): sherpa-onnx in a forked worker process. Qwen3-ASR 0.6B
+    int8 is the default model; Parakeet TDT and Whisper remain selectable.
     Models auto-download in the background on first use; while missing, the
     stream fails with `reasonCode: 'model_download_in_progress'` and the
     status route reports per-model install/download state.
@@ -55,6 +56,8 @@ response carries `X-Speech-Model` and `X-Speech-Language`.
   recognizer engine and segment session (one decode per committed segment),
   model catalog and downloader. The native `sherpa-onnx-node` addon is only
   ever loaded inside the worker process.
+- `local/model-catalog.js` — local STT catalog. Qwen3-ASR uses
+  `qwen3_asr`; Parakeet uses `nemo_transducer`; Whisper uses `whisper`.
 - `audio.js` — PCM16 helpers: format parsing, peak, WAV wrapping, streaming
   linear resampler.
 
@@ -85,6 +88,12 @@ and peak memory grow quadratically with segment length. Measured on Parakeet
 v3 int8 with 2 threads: 60 s took 2.1 s and +90 MB, 180 s took 9.3 s and
 +490 MB, 300 s took 21.3 s and +1.5 GB. Committed segments decode while the
 user is still speaking, so only the tail is left to transcribe on stop.
+
+Qwen3-ASR uses the Mac's performance-core count from
+`hw.perflevel0.physicalcpu`, clamped to 2-8 threads. If that value is not
+available, it uses up to four logical CPUs. Other local STT models keep the
+existing two-thread policy. On an M2 Air, four performance-core threads decode
+faster than two threads or configurations that also include efficiency cores.
 
 ## Invariants
 

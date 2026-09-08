@@ -2216,6 +2216,8 @@ export const settingsDict = {
   'settings.voice.page.field.followTextLanguage': 'Dopasuj głos do języka tekstu',
   'settings.voice.page.field.followTextLanguageAria': 'Dopasuj głos do języka tekstu',
   'settings.voice.page.field.followTextLanguageInfo': 'Gdy odpowiedź jest w innym języku, używany jest głos dla tego języka: pasujący głos macOS albo lokalny model pobierany przy pierwszym użyciu.',
+  'settings.voice.page.stt.model.qwen3Asr': 'Qwen3-ASR 0.6B (int8)',
+  'settings.voice.page.stt.model.qwen3AsrDescription': 'Mandaryński, angielski i około 30 języków z automatycznym wykrywaniem języka i interpunkcją.',
   'settings.voice.page.stt.model.parakeetV2': 'Parakeet v2 (angielski)',
   'settings.voice.page.stt.model.parakeetV3': 'Parakeet v3 (25 języków europejskich)',
   'settings.voice.page.stt.model.whisperBase': 'Whisper base (wielojęzyczny)',
