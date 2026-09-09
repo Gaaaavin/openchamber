@@ -84,7 +84,9 @@ export class SherpaOfflineRecognizerEngine {
               decoder: config.decoder,
               tokenizer: config.tokenizer,
               hotwords: '',
-              maxNewTokens: 512,
+              // Default max_total_len is 512 (~36 s of audio); 2048 covers ~120 s; the KV cache is dynamic.
+              maxTotalLen: 2048,
+              maxNewTokens: 1024,
             },
             tokens: '',
             numThreads: qwen3AsrThreads(),

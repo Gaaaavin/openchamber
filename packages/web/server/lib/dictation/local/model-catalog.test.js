@@ -15,7 +15,12 @@ describe('local STT catalog', () => {
     expect(DEFAULT_LOCAL_STT_MODEL).toBe('qwen3-asr-0.6b-int8');
     const spec = LOCAL_STT_MODEL_CATALOG[DEFAULT_LOCAL_STT_MODEL];
     expect(spec.type).toBe('qwen3_asr');
-    expect(spec.segment).toEqual({ minSeconds: 10, maxSeconds: 20 });
+    expect(spec.segment).toEqual({ minSeconds: 30, maxSeconds: 60 });
+    for (const seconds of Object.values(spec.segment)) {
+      expect(Number.isFinite(seconds)).toBe(true);
+      expect(seconds).toBeGreaterThan(0);
+    }
+    expect(spec.segment.minSeconds).toBeLessThan(spec.segment.maxSeconds);
     expect(getLocalSttModelSpec(DEFAULT_LOCAL_STT_MODEL).requiredFiles).toEqual([
       'conv_frontend.onnx',
       'encoder.int8.onnx',
@@ -29,7 +34,7 @@ describe('local STT catalog', () => {
     for (const modelId of Object.keys(LOCAL_STT_MODEL_CATALOG)) {
       const session = new WorkerBackedTranscriptionSession(client, { modelsDir: '/unused', modelId });
       expect(session.segmentHints).toEqual(
-        modelId === DEFAULT_LOCAL_STT_MODEL ? { minSeconds: 10, maxSeconds: 20 } : undefined,
+        modelId === DEFAULT_LOCAL_STT_MODEL ? { minSeconds: 30, maxSeconds: 60 } : undefined,
       );
       expect(() => { session.segmentHints = {}; }).toThrow(TypeError);
     }

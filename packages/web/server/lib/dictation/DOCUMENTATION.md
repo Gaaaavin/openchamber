@@ -85,13 +85,30 @@ defaults and falls back to both defaults if either bound is non-finite,
 non-positive, or the minimum exceeds the maximum. Sessions without hints,
 including OpenAI-compatible sessions, retain the defaults.
 
-Qwen3-ASR uses 10/20 s bounds because its decoder has a fixed 512-token KV
-context. About 20 prompt tokens leave roughly 490 for audio and text. At 13
-audio tokens/s plus about 5 Mandarin text tokens/s, the absolute ceiling is
-roughly 27 s. A 20 s cap leaves margin for fast speech. Measured without these
-bounds, clips longer than about 36 s returned only `language`, and clips of
-25-36 s silently lost transcript tails. The recognizer sets `maxNewTokens` to
-512 rather than sherpa's default 128; `maxTotalLen` remains model-derived.
+Qwen3-ASR uses 30/60 s bounds to limit decode latency, not token use. The
+512-token limit was sherpa's default `max_total_len`, not a fixed decoder
+limit: the exported KV cache is dynamic. The recognizer now sets
+`maxTotalLen: 2048` and `maxNewTokens: 1024`. At 13 audio tokens/s plus about
+3.2 Mandarin text tokens/s and 20 prompt tokens, 60 s uses roughly 1000
+tokens and 120 s roughly 1970. The tokenizer merges two-character words.
+
+Single-call measurements on an M2 Air with four threads,
+`qwen3-asr-0.6b-int8`, sherpa-onnx-node 1.13.7, and `maxTotalLen` raised to
+2048 or 4096:
+
+| Audio | Decode | RTF | Max RSS |
+|---|---|---|---|
+| 10 s | 1.1 s | 0.10 | 1.8 GB |
+| 30 s | 4.4 s | 0.15 | 2.9 GB |
+| 60 s | 12.2 s | 0.20 | 2.9 GB |
+| 90 s | 24.6 s | 0.27 | 3.4 GB |
+| 170 s | 77.8 s | 0.46 | 4.1 GB |
+
+Decode time grows superlinearly. A 60 s segment takes about 12 s, well below
+the worker's 60 s request timeout. Decode blocks worker IPC synchronously,
+so queued appends wait too; the timeout leaves headroom for thermal
+throttling on fanless machines. The tail segment's decode is what the user
+waits for after stopping.
 
 Once a segment reaches its minimum, a whole chunk with PCM peak below 300
 is appended and committed first. Otherwise the manager scans the resampled
@@ -101,7 +118,7 @@ peak so far, with a floor of 300. The remainder starts the next segment with
 its own byte and peak accounting. The hard cap remains the final rule when
 no pause qualifies. Finish disables auto-splitting while missing chunks drain.
 
-The bounds exist because Parakeet is a full-attention conformer: decode cost
+Parakeet's bounds exist because it is a full-attention conformer: decode cost
 and peak memory grow quadratically with segment length. Measured on Parakeet
 v3 int8 with 2 threads: 60 s took 2.1 s and +90 MB, 180 s took 9.3 s and
 +490 MB, 300 s took 21.3 s and +1.5 GB. Committed segments decode while the

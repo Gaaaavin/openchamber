@@ -15,7 +15,9 @@ import { fileURLToPath } from 'url';
 import { applySherpaLoaderEnv } from './sherpa-loader.js';
 import { getLocalSttModelSpec } from './model-catalog.js';
 
-const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+// A 60 s Qwen3 segment takes ~12 s; synchronous decode also blocks queued appends.
+// Leave headroom for thermal throttling on fanless machines.
+const DEFAULT_REQUEST_TIMEOUT_MS = 60000;
 const DEFAULT_IDLE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_LOCAL_SAMPLE_RATE = 16000;
 const STDERR_TAIL_MAX_CHARS = 2000;
