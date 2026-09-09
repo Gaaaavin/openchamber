@@ -375,6 +375,12 @@ interface MessageQueueActions {
     getQueueForTarget: (target: MessageQueueTarget) => QueuedMessage[];
     /** Server-owned queue: load the authoritative queue for the active runtime. */
     hydrate: () => Promise<void>;
+    /**
+     * Server-owned queue: re-read the server after the event stream had a gap.
+     * A no-op until a hydration has established ownership, since only then can
+     * hydration tell the server's own copies from an older build's local queue.
+     */
+    resync: () => Promise<void>;
     /** Server-owned queue: apply one session's authoritative state (broadcast or response). */
     applyServerSession: (session: ServerQueueSession, revision: number, expectedRuntimeKey: string) => void;
     /** Server-owned queue: tell the server to hold or release a session's delivery. */
@@ -609,18 +615,24 @@ export const useMessageQueueStore = create<MessageQueueStore>()(
                     takeForSend: async (target, messageId) => {
                         const key = getMessageQueueKey(target);
                         if (isServerOwnedMessageQueue()) {
-                            if (messageId) {
-                                const result = await requestJson(
-                                    serverTakeResponseSchema,
-                                    `${sessionPath(target.sessionId)}/items/${encodeURIComponent(messageId)}/take`,
-                                    jsonInit('POST'),
-                                );
+                            try {
+                                if (messageId) {
+                                    const result = await requestJson(
+                                        serverTakeResponseSchema,
+                                        `${sessionPath(target.sessionId)}/items/${encodeURIComponent(messageId)}/take`,
+                                        jsonInit('POST'),
+                                    );
+                                    applyServerSession(result.session, result.revision, target.runtimeKey);
+                                    return [toQueuedMessage(result.item)];
+                                }
+                                const result = await requestJson(serverTakeAllResponseSchema, `${sessionPath(target.sessionId)}/take`, jsonInit('POST'));
                                 applyServerSession(result.session, result.revision, target.runtimeKey);
-                                return [toQueuedMessage(result.item)];
+                                return result.items.map(toQueuedMessage);
+                            } catch (error) {
+                                // A 404 means the server already delivered or dropped the message.
+                                await refreshSession(target);
+                                throw error;
                             }
-                            const result = await requestJson(serverTakeAllResponseSchema, `${sessionPath(target.sessionId)}/take`, jsonInit('POST'));
-                            applyServerSession(result.session, result.revision, target.runtimeKey);
-                            return result.items.map(toQueuedMessage);
                         }
 
                         const state = get();
@@ -740,30 +752,33 @@ export const useMessageQueueStore = create<MessageQueueStore>()(
                         if (!isCurrent()) return;
                         serverOwnedRuntimeKeys.add(runtimeKey);
                         set((state) => {
+                            // A broadcast newer than this snapshot wins, listed in it or not.
+                            const isNewerThanSnapshot = (key: string) => (appliedRevisions.get(key) ?? -1) > snapshot.revision;
+                            const keep = (key: string) => parseMessageQueueKey(key)?.runtimeKey !== runtimeKey || isNewerThanSnapshot(key);
                             const queuedMessages: Record<string, QueuedMessage[]> = {};
                             const sendingIds: Record<string, string[]> = {};
                             for (const [key, queue] of Object.entries(state.queuedMessages)) {
-                                if (parseMessageQueueKey(key)?.runtimeKey !== runtimeKey) queuedMessages[key] = queue;
+                                if (keep(key)) queuedMessages[key] = queue;
                             }
                             for (const [key, ids] of Object.entries(state.sendingIds)) {
-                                if (parseMessageQueueKey(key)?.runtimeKey !== runtimeKey) sendingIds[key] = ids;
+                                if (keep(key)) sendingIds[key] = ids;
                             }
                             for (const session of snapshot.sessions) {
                                 const target = createMessageQueueTarget(session.sessionId, session.directory, runtimeKey);
                                 if (!target) continue;
                                 const key = getMessageQueueKey(target);
-                                if ((appliedRevisions.get(key) ?? -1) > snapshot.revision) {
-                                    // A broadcast newer than this snapshot already landed; keep it.
-                                    if (state.queuedMessages[key]) queuedMessages[key] = state.queuedMessages[key];
-                                    if (state.sendingIds[key]) sendingIds[key] = state.sendingIds[key];
-                                    continue;
-                                }
+                                if (isNewerThanSnapshot(key)) continue;
                                 appliedRevisions.set(key, snapshot.revision);
                                 if (session.items.length > 0) queuedMessages[key] = session.items.map(toQueuedMessage);
                                 if (session.sendingId) sendingIds[key] = [session.sendingId];
                             }
                             return { queuedMessages, sendingIds };
                         });
+                    },
+
+                    resync: async () => {
+                        if (!serverOwnedRuntimeKeys.has(getRuntimeKey())) return;
+                        await get().hydrate();
                     },
 
                     applyServerSession,

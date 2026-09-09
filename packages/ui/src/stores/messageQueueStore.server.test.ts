@@ -123,6 +123,34 @@ describe("server-owned message queue", () => {
     expect(useMessageQueueStore.getState().sendingIds[key]).toEqual(["q1"])
   })
 
+  test("hydrate keeps a queue a newer broadcast added even when the snapshot predates it", async () => {
+    applyMessageQueueUpdatedEvent(updated(10, session([serverItem("q1", "queued after the read started")])), "runtime-a")
+    respond = () => json({ revision: 9, sessions: [] })
+    await useMessageQueueStore.getState().hydrate()
+
+    expect(useMessageQueueStore.getState().queuedMessages[key]?.map((m) => m.id)).toEqual(["q1"])
+  })
+
+  test("resync re-reads the server once a hydration established ownership, and drops what it no longer lists", async () => {
+    // Before a hydration the store cannot tell the server's copies from an
+    // older build's local queue, so there is nothing to re-read yet.
+    activeRuntimeKey = "runtime-never-hydrated"
+    await useMessageQueueStore.getState().resync()
+    expect(calls).toHaveLength(0)
+
+    activeRuntimeKey = "runtime-a"
+    respond = () => json({ revision: 3, sessions: [session([serverItem("q1", "queued")], "q1")] })
+    await useMessageQueueStore.getState().hydrate()
+    expect(useMessageQueueStore.getState().queuedMessages[key]).toHaveLength(1)
+
+    // The server delivered q1 while this client's stream was down.
+    respond = () => json({ revision: 4, sessions: [] })
+    await useMessageQueueStore.getState().resync()
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual(["GET /api/message-queue", "GET /api/message-queue"])
+    expect(useMessageQueueStore.getState().queuedMessages[key]).toBe(undefined)
+    expect(useMessageQueueStore.getState().sendingIds[key]).toBe(undefined)
+  })
+
   test("addToQueue shows the message at once and settles on the server's copy", async () => {
     respond = () => json({ revision: 5, session: session([serverItem("srv-1", "hi @reviewer", { agentMention: "reviewer" })]) })
     const pending = useMessageQueueStore.getState().addToQueue(target, {
@@ -268,6 +296,20 @@ describe("server-owned message queue", () => {
     expect(calls[0]?.method).toBe("POST")
     expect(taken.map((m) => m.content)).toEqual(["second"])
     expect(useMessageQueueStore.getState().queuedMessages[key]?.map((m) => m.id)).toEqual(["q1"])
+  })
+
+  test("a failed take re-reads the server so a stale projection is cleared", async () => {
+    useMessageQueueStore.setState({ queuedMessages: { [key]: [{ id: "q1", content: "already delivered", text: "already delivered", createdAt: 1 }] } })
+    respond = (call) => (call.path.endsWith("/take")
+      ? new Response(JSON.stringify({ error: "queued message not found" }), { status: 404 })
+      : json({ revision: 12, sessions: [] }))
+    await expect(useMessageQueueStore.getState().takeForSend(target, "q1")).rejects.toThrow()
+
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+      "POST /api/message-queue/sessions/session-1/items/q1/take",
+      "GET /api/message-queue",
+    ])
+    expect(useMessageQueueStore.getState().queuedMessages[key]).toBe(undefined)
   })
 
   test("broadcasts update the projection but never move it backwards", () => {

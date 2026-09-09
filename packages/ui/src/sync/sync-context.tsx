@@ -642,6 +642,12 @@ function isRecentBoot() {
   return bootingRoot || Date.now() - bootedAt < BOOT_DEBOUNCE_MS
 }
 
+// Queue broadcasts ride the WebSocket event transport only. A stream gap or
+// the SSE fallback misses them, so a reconnect re-reads the server's queue.
+function resyncMessageQueue() {
+  void useMessageQueueStore.getState().resync().catch(() => undefined)
+}
+
 function getViewedSessionMaterializationTarget(directory: string) {
   if (!_activeDirectory || !_activeSession) return null
   if (directory !== _activeDirectory) return null
@@ -2557,6 +2563,7 @@ export function SyncProvider(props: {
         for (const dir of childStores.children.keys()) {
           triggerDirectoryResync(dir, "stream-reconnect")
         }
+        resyncMessageQueue()
       },
       onDisconnect: (reason) => {
         if (!pipelineHasConnectedRef.current) {
@@ -2580,6 +2587,7 @@ export function SyncProvider(props: {
         for (const dir of childStores.children.keys()) {
           triggerDirectoryResync(dir, "transport-switch")
         }
+        resyncMessageQueue()
       },
     })
     pipelineReconnectRef.current = pipeline.reconnect
