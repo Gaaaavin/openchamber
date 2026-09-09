@@ -1202,7 +1202,6 @@ export const dict = {
   'contextRail.surface.walkthrough.description': 'Değişikliklerinin AI rehberliğindeki inceleme turu',
   'walkthrough.scope.all': 'Commit edilmemiş tüm değişiklikler',
   'walkthrough.scope.group.workingTree': 'Working tree',
-  'walkthrough.scope.group.committed': 'Commit edilmiş',
   'walkthrough.scope.staged': 'Stage\'lenmiş',
   'walkthrough.scope.working': 'Stage\'lenmemiş',
   'walkthrough.scope.branch': 'Bu branch',
