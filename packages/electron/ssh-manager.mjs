@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
+// FORK: Keep long-lived SSH transports from remaining half-open indefinitely.
+import { buildForkLongLivedSshArgs } from './fork-ssh-keepalive.mjs';
 import { replaceFileWithRetry } from './windows-file-replace.mjs';
 
 const LOCAL_HOST_ID = 'local';
@@ -478,7 +480,8 @@ export class ElectronSshManager {
   }
 
   spawnSsh(parsed, preDestinationArgs, options, remoteCommand = null) {
-    const child = this.spawnProcess('ssh', buildSshArgs(parsed, preDestinationArgs, remoteCommand), {
+    // FORK: spawnSsh is reserved for long-lived masters and forwarding processes.
+    const child = this.spawnProcess('ssh', buildForkLongLivedSshArgs(parsed, preDestinationArgs, remoteCommand), {
       ...options,
       ...this.hiddenSpawnOptions(),
       env: this.authEnvironment(parsed),
