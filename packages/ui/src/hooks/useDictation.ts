@@ -3,11 +3,9 @@
  *
  * Status flow: idle -> recording -> uploading -> idle | failed.
  * While recording, mic PCM chunks stream to the server, which transcribes them
- * segment by segment; confirm finalizes and resolves the full text. Nothing is
- * shown while recording — `partialTranscript` holds whatever the server has
- * transcribed so far and exists only so a failed dictation can be salvaged
- * instead of losing minutes of speech. Failed dictations also retain their
- * audio segments so retry can replay them.
+ * segment by segment; confirm finalizes and resolves the full text.
+ * FORK: `partialTranscript` holds committed text for the live overlay and
+ * failure salvage. Failed dictations retain audio segments for retry replay.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,7 +27,7 @@ export interface UseDictationResult {
     status: DictationStatus;
     isRecording: boolean;
     isProcessing: boolean;
-    /** Server-side transcript so far; recovery only, never shown while recording. */
+    /** FORK: committed server transcript for the live overlay and failure recovery. */
     partialTranscript: string;
     /** Subscribe to the normalized (0..1) mic level for the waveform. */
     subscribeLevel: (listener: DictationLevelListener) => () => void;
@@ -138,8 +136,7 @@ export function useDictation(options: UseDictationOptions = {}): UseDictationRes
         setPartialTranscript('');
     }, []);
 
-    // Transcripts of segments the server has already committed. Not rendered
-    // while recording; kept so a failed dictation can be salvaged.
+    // FORK: committed segments feed the live overlay and remain available for salvage.
     useEffect(() => {
         return dictationClient.onPartial((dictationId, text) => {
             const activeDictationId = senderRef.current?.getDictationId();

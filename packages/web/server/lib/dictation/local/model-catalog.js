@@ -16,10 +16,9 @@ export const LOCAL_STT_MODEL_CATALOG = {
   // FORK: Qwen3-ASR is the default local dictation model on Apple Silicon.
   'qwen3-asr-0.6b-int8': {
     type: 'qwen3_asr',
-    // Bound by decode time, not tokens: 60 s takes ~12 s on an M2 Air.
-    // RTF grows superlinearly: 0.10 at 10 s, 0.20 at 60 s, 0.27 at 90 s.
-    // Stay well below the worker request timeout; users wait for the tail decode on stop.
-    segment: { minSeconds: 30, maxSeconds: 60 },
+    // FORK: shorter segments show committed text sooner in the live overlay
+    // and shorten the wait after stop; 30 s decodes in ~4.4 s on an M2 Air.
+    segment: { minSeconds: 15, maxSeconds: 30 },
     archiveUrl:
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2',
     extractedDir: 'sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25',

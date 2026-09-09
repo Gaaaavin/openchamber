@@ -5,11 +5,12 @@ text-to-speech. The client streams 16 kHz mono PCM16 chunks (base64) over a
 WebSocket while the user speaks; the server buffers them and transcribes each
 segment exactly once, when the segment is committed.
 
-Transcription is deliberately not incremental. The local recognizers decode
-whole utterances, so re-decoding the growing buffer to animate a live
-transcript costs O(n^2) work for a result the final decode replaces. The
-composer shows no text while recording and inserts the full transcript on
-stop.
+Transcription runs once per committed segment, not on the growing audio
+buffer. Re-decoding that buffer would cost O(n^2) work for a result the final
+decode replaces. The composer overlay shows committed segments live while
+recording and transcribing, in a normal-foreground block capped at three lines
+with scrolling that follows new text. It inserts the full transcript after
+stop and finalization, not as segments arrive.
 
 Local TTS (Kokoro and Piper/VITS via sherpa-onnx OfflineTts) runs in the same
 worker process and is exposed as `POST /api/dictation/tts/speak` (JSON
@@ -85,7 +86,9 @@ defaults and falls back to both defaults if either bound is non-finite,
 non-positive, or the minimum exceeds the maximum. Sessions without hints,
 including OpenAI-compatible sessions, retain the defaults.
 
-Qwen3-ASR uses 30/60 s bounds to limit decode latency, not token use. The
+Qwen3-ASR uses 15/30 s bounds so committed text appears sooner in the live
+overlay and the tail takes less time to decode after stop. The bounds limit
+decode latency, not token use. The
 512-token limit was sherpa's default `max_total_len`, not a fixed decoder
 limit: the exported KV cache is dynamic. The recognizer now sets
 `maxTotalLen: 2048` and `maxNewTokens: 1024`. At 13 audio tokens/s plus about
@@ -104,7 +107,7 @@ Single-call measurements on an M2 Air with four threads,
 | 90 s | 24.6 s | 0.27 | 3.4 GB |
 | 170 s | 77.8 s | 0.46 | 4.1 GB |
 
-Decode time grows superlinearly. A 60 s segment takes about 12 s, well below
+Decode time grows superlinearly. A 30 s segment takes about 4.4 s, well below
 the worker's 60 s request timeout. Decode blocks worker IPC synchronously,
 so queued appends wait too; the timeout leaves headroom for thermal
 throttling on fanless machines. The tail segment's decode is what the user
@@ -135,8 +138,8 @@ faster than two threads or configurations that also include efficiency cores.
 - Never load `sherpa-onnx-node` in the main server process.
 - Transcription happens on commit only; sessions never emit non-final
   transcripts. The `partial` messages a client receives are the concatenation
-  of already-committed segments, and exist so a dictation that fails partway
-  can be salvaged instead of losing minutes of speech.
+  of already-committed segments' final transcripts. The overlay displays them
+  during recording and uploading; they also allow salvage if dictation fails.
 - The stream manager acks only the highest contiguous seq; the client is
   expected to retain unacked segments for retry/replay.
 - Silence-only segments (peak < 300) are cleared, never committed, so

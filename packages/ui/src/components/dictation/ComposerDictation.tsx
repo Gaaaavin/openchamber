@@ -6,9 +6,8 @@
  * reuses the footer icon-button styling — so toggling dictation causes no
  * vertical shift.
  *
- * No text appears while recording. The server transcribes the audio once the
- * user stops, so the overlay shows the recording state and then Transcribing.
- * The only transcript rendered here is the salvage text of a failed dictation.
+ * FORK: committed segment text appears while recording and transcribing.
+ * The full transcript is still inserted only after finalization or salvage.
  */
 
 import React from 'react';
@@ -20,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { useDictation } from '@/hooks/useDictation';
 import { DictationWaveform } from '@/components/dictation/DictationWaveform';
+import { DictationLiveTranscript } from '@/components/dictation/fork/DictationLiveTranscript'; // FORK: live committed segments.
 import { isDictationCaptureSupported } from '@/lib/dictation/use-dictation-audio-source';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useConfigStore } from '@/stores/useConfigStore';
@@ -394,6 +394,10 @@ export const ComposerDictation: React.FC<ComposerDictationProps> = ({
                                     {placeholderText}
                                 </p>
                             )}
+                            {/* FORK: keep committed text visible while recording and finishing. */}
+                            {status === 'recording' || status === 'uploading' ? (
+                                <DictationLiveTranscript text={partialTranscript} />
+                            ) : null}
                             {status === 'failed' ? (
                                 <p className="typography-meta mt-1" style={{ color: currentTheme.colors.status.error }}>
                                     {error || t('chat.dictation.failed')}
