@@ -42,6 +42,10 @@ refresh attempt per opening, so a failed first load cannot create a retry loop.
 
 ### UI state stores
 
+Sidebar visibility and its persisted width are independent. Opening or closing
+the sidebar never writes a width; only resizing changes the saved choice.
+The initial width is separate from the component's minimum resize width.
+
 `useCommitSelectionStore.ts` shares the selected commit between desktop/mobile
 Changes and walkthrough. Choices are session-only and keyed by runtime, directory, and
 checked-out branch, with at most 100 remembered choices. The picker history
