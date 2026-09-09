@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import express from 'express';
 import path from 'path';
@@ -21,6 +21,140 @@ const closeServer = (server) => new Promise((resolve, reject) => {
       return;
     }
     resolve();
+  });
+});
+
+const createProxyTestDependencies = (upstreamPort, resolveProjectDirectory, logger = console) => ({
+  fs: {},
+  os: {},
+  path,
+  OPEN_CODE_READY_GRACE_MS: 0,
+  getRuntime: () => ({
+    openCodePort: upstreamPort,
+    isOpenCodeReady: true,
+    openCodeNotReadySince: 0,
+    isRestartingOpenCode: false,
+  }),
+  getOpenCodeAuthHeaders: () => ({}),
+  buildOpenCodeUrl: (requestPath) => `http://127.0.0.1:${upstreamPort}${requestPath}`,
+  ensureOpenCodeApiPrefix: () => {},
+  resolveProjectDirectory,
+  logger,
+});
+
+describe('OpenCode proxy default directory', () => {
+  let upstreamServer;
+  let proxyServer;
+
+  afterEach(async () => {
+    await closeServer(proxyServer);
+    await closeServer(upstreamServer);
+    proxyServer = undefined;
+    upstreamServer = undefined;
+  });
+
+  const setup = async (resolveProjectDirectory, logger = console) => {
+    const seen = [];
+    const upstream = express();
+    upstream.use((req, res) => {
+      seen.push({
+        path: req.path,
+        directory: req.headers['x-opencode-directory'] ?? null,
+      });
+      res.json(req.path.includes('/session') ? [] : { ok: true });
+    });
+    upstreamServer = await listen(upstream);
+    const upstreamPort = upstreamServer.address().port;
+
+    const app = express();
+    registerOpenCodeProxy(app, createProxyTestDependencies(upstreamPort, resolveProjectDirectory, logger));
+    proxyServer = await listen(app);
+    return { port: proxyServer.address().port, seen };
+  };
+
+  it('defaults generic, session-list, and non-global SSE requests through a decoded header', async () => {
+    const directory = '/Users/example/project';
+    const resolver = vi.fn(async () => ({ directory, error: null }));
+    const { port, seen } = await setup(resolver);
+
+    for (const route of ['/api/path', '/api/experimental/session', '/api/event']) {
+      const response = await fetch(`http://127.0.0.1:${port}${route}`);
+      expect(response.status).toBe(200);
+      await response.text();
+    }
+
+    expect(seen).toEqual([
+      { path: '/path', directory },
+      { path: '/experimental/session', directory },
+      { path: '/event', directory },
+    ]);
+    expect(resolver).toHaveBeenCalledTimes(3);
+  });
+
+  it('leaves an explicit directory header untouched', async () => {
+    const resolver = vi.fn(async () => ({ directory: '/default', error: null }));
+    const { port, seen } = await setup(resolver);
+
+    await fetch(`http://127.0.0.1:${port}/api/path`, {
+      headers: { 'x-opencode-directory': '/explicit' },
+    });
+
+    expect(seen[0]?.directory).toBe('/explicit');
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it('round-trips a non-ASCII default directory to OpenCode', async () => {
+    const directory = '/Users/example/项目';
+    const resolver = vi.fn(async () => ({ directory, error: null }));
+    const { port, seen } = await setup(resolver);
+
+    const response = await fetch(`http://127.0.0.1:${port}/api/path`);
+
+    expect(response.status).toBe(200);
+    expect(decodeURIComponent(seen[0]?.directory)).toBe(directory);
+  });
+
+  it('leaves an explicit directory query untouched', async () => {
+    const resolver = vi.fn(async () => ({ directory: '/default', error: null }));
+    const { port, seen } = await setup(resolver);
+
+    await fetch(`http://127.0.0.1:${port}/api/path?directory=%2Fexplicit`);
+
+    expect(seen[0]?.directory).toBeNull();
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it('never scopes global event requests', async () => {
+    const resolver = vi.fn(async () => ({ directory: '/default', error: null }));
+    const { port, seen } = await setup(resolver);
+
+    await fetch(`http://127.0.0.1:${port}/api/global/event`);
+
+    expect(seen[0]?.directory).toBeNull();
+    expect(resolver).not.toHaveBeenCalled();
+  });
+
+  it('forwards without a directory when no default is available', async () => {
+    const resolver = vi.fn(async () => ({ directory: null, error: null }));
+    const { port, seen } = await setup(resolver);
+
+    await fetch(`http://127.0.0.1:${port}/api/path`);
+
+    expect(seen[0]?.directory).toBeNull();
+  });
+
+  it('continues after resolver failure and logs only once', async () => {
+    const resolver = vi.fn(async () => {
+      throw new Error('settings unavailable');
+    });
+    const logger = { debug: vi.fn() };
+    const { port, seen } = await setup(resolver, logger);
+
+    await fetch(`http://127.0.0.1:${port}/api/path`);
+    await fetch(`http://127.0.0.1:${port}/api/config`);
+
+    expect(seen.map((request) => request.directory)).toEqual([null, null]);
+    expect(logger.debug).toHaveBeenCalledTimes(1);
   });
 });
 

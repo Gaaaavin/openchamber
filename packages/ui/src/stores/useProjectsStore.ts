@@ -15,6 +15,8 @@ import { runtimeFetch } from '@/lib/runtime-fetch';
 import { getRuntimeApiBaseUrl } from '@/lib/runtime-switch';
 import { getVSCodeBootstrapConfig } from '@/lib/vscodeBootstrap';
 import { isVSCodeRuntime } from './utils/vscodeRuntime';
+import { getSyncChildStores } from '@/sync/sync-refs';
+import { disposeIdleOpenCodeInstance } from '@/sync/fork/instance-dispose';
 
 /** Pick a color key that's least used among existing projects */
 const pickAutoColor = (projects: ProjectEntry[]): string => {
@@ -745,14 +747,31 @@ export const useProjectsStore = create<ProjectsStore>()(
         });
       }
 
+      const releaseRemovedProject = () => {
+        if (!project) return;
+        // FORK: project removal releases both the child store and its OpenCode instance.
+        let childStores: ReturnType<typeof getSyncChildStores> | null = null;
+        try {
+          childStores = getSyncChildStores();
+        } catch {
+          // SyncProvider may not be mounted yet; the server instance can still exist.
+        }
+        if (childStores?.getChild(project.path)) {
+          childStores.evictDirectory(project.path, useDirectoryStore.getState().currentDirectory);
+        } else {
+          disposeIdleOpenCodeInstance(project.path);
+        }
+      };
+
       if (nextActiveId) {
         const nextActive = nextProjects.find((project) => project.id === nextActiveId);
         if (nextActive) {
           opencodeClient.setDirectory(nextActive.path);
           useDirectoryStore.getState().setDirectory(nextActive.path, { showOverlay: false });
         }
+        releaseRemovedProject();
       } else {
-        void useDirectoryStore.getState().goHome();
+        void useDirectoryStore.getState().goHome().then(releaseRemovedProject);
       }
     },
 

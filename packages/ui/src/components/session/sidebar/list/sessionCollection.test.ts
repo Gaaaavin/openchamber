@@ -83,6 +83,15 @@ describe('projectSidebarActiveSessions', () => {
     }).map((entry) => entry.id)).toEqual(['known']);
   });
 
+  test('keeps a worktree session when its directory matches with the same case', () => {
+    expect(projectSidebarActiveSessions({
+      globalActiveSessions: [session('worktree', '/Workspace/Feature')],
+      liveSessions: [],
+      knownDirectories: new Set(['/Workspace/Feature']),
+      isVSCode: true,
+    }).map((entry) => entry.id)).toEqual(['worktree']);
+  });
+
   test('allows missing or unknown directories for web when no directories are known', () => {
     const sessions = [session('unknown', '/workspace/unknown'), session('empty', null)];
 

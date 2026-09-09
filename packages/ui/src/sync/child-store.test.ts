@@ -93,6 +93,41 @@ describe('ChildStoreManager directory lifecycle', () => {
       manager.disposeAll();
     }
   });
+
+  test('refuses explicit eviction of the active directory', () => {
+    const manager = new ChildStoreManager();
+    const child = manager.ensureChild('/workspace', { bootstrap: false });
+
+    expect(manager.evictDirectory('/workspace/', '/workspace')).toBe(false);
+    expect(manager.getChild('/workspace')).toBe(child);
+
+    manager.disposeAll();
+  });
+
+  test('defers explicit eviction until the final pin releases and disposes once', () => {
+    let disposals = 0;
+    const manager = new ChildStoreManager();
+    manager.configure({
+      onDispose: () => {
+        disposals += 1;
+      },
+    });
+    manager.ensureChild('/workspace', { bootstrap: false });
+    manager.pin('/workspace');
+
+    expect(manager.evictDirectory('/workspace', '/other')).toBe(false);
+    expect(manager.getChild('/workspace')).toBeDefined();
+    expect(disposals).toBe(0);
+
+    manager.unpin('/workspace');
+
+    expect(manager.getChild('/workspace')).toBe(undefined);
+    expect(disposals).toBe(1);
+    expect(manager.evictDirectory('/workspace', '/other')).toBe(false);
+    expect(disposals).toBe(1);
+
+    manager.disposeAll();
+  });
 });
 
 describe('ChildStoreManager permission subscriptions', () => {

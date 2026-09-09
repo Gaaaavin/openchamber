@@ -13,6 +13,7 @@ export const createServerUtilsRuntime = (dependencies) => {
     getOpenCodeAuthHeaders,
     buildOpenCodeUrl,
     ensureOpenCodeApiPrefix,
+    resolveProjectDirectory,
     getUpstreamStallTimeoutMs,
     getUiNotificationClients,
     getOpenCodePort,
@@ -213,6 +214,7 @@ export const createServerUtilsRuntime = (dependencies) => {
       getOpenCodeAuthHeaders,
       buildOpenCodeUrl,
       ensureOpenCodeApiPrefix,
+      resolveProjectDirectory,
       getSseUpstreamStallTimeoutMs: getUpstreamStallTimeoutMs,
       getUiNotificationClients,
     });

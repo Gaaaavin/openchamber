@@ -11,55 +11,49 @@ const sections = [{
 }]
 
 describe("buildSessionBootstrapDemands", () => {
-  test("keeps collapsed worktrees eligible at background priority", () => {
-    const demands = buildSessionBootstrapDemands({
+  test("keeps known directories at background priority and ignores worktree groups", () => {
+    const input = {
       projectSections: sections,
+      knownDirectories: ["/known-project"],
       activeProjectId: null,
       collapsedProjects: new Set(["project-a"]),
-      collapsedGroups: new Set(),
       currentDirectory: null,
       currentSessionDirectory: null,
-    })
+    }
+    const demands = buildSessionBootstrapDemands(input)
 
     expect(demands.map(({ directory, priority }) => [directory, priority])).toEqual([
+      ["/known-project", "background"],
       ["/repo", "background"],
-      ["/repo/wt-a", "background"],
-      ["/repo/wt-b", "background"],
     ])
   })
 
-  test("promotes expansion and selected session without duplicate directories", () => {
+  test("demands a selected session worktree without demanding sibling worktrees", () => {
     const demands = buildSessionBootstrapDemands({
       projectSections: sections,
       activeProjectId: "project-a",
       collapsedProjects: new Set(),
-      collapsedGroups: new Set(["project-a:worktree:/repo/wt-b"]),
       currentDirectory: "/repo",
       currentSessionDirectory: "/repo/wt-b",
     })
     const byDirectory = new Map(demands.map((demand) => [demand.directory, demand]))
 
-    expect(demands.length).toBe(3)
+    expect(demands.length).toBe(2)
     expect(byDirectory.get("/repo")?.priority).toBe("selected")
-    expect(byDirectory.get("/repo/wt-a")?.priority).toBe("expanded")
     expect(byDirectory.get("/repo/wt-b")?.priority).toBe("selected")
   })
 
-  test("keeps the complete known topology demanded without a visible section projection", () => {
+  test("demands the active project root without a section projection", () => {
     const demands = buildSessionBootstrapDemands({
-      knownDirectories: ["/repo", "/repo/wt-a", "/repo/wt-b"],
       activeProjectDirectory: "/repo",
       activeProjectId: "project-a",
       collapsedProjects: new Set(),
-      collapsedGroups: new Set(),
       currentDirectory: null,
       currentSessionDirectory: null,
     })
 
     expect(demands.map(({ directory, priority }) => [directory, priority])).toEqual([
       ["/repo", "active-project"],
-      ["/repo/wt-a", "background"],
-      ["/repo/wt-b", "background"],
     ])
   })
 })

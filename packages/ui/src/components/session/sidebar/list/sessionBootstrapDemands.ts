@@ -3,12 +3,6 @@ import { normalizePath } from "../utils"
 
 type BootstrapProjectSection = {
   project: { id: string; normalizedPath: string }
-  groups: Array<{
-    id: string
-    directory: string | null
-    isArchivedBucket?: boolean
-    isMain: boolean
-  }>
 }
 
 const PRIORITY_RANK = {
@@ -25,7 +19,6 @@ export function buildSessionBootstrapDemands(input: {
   activeProjectDirectory?: string | null
   activeProjectId: string | null
   collapsedProjects: ReadonlySet<string>
-  collapsedGroups: ReadonlySet<string>
   currentDirectory: string | null
   currentSessionDirectory: string | null
 }): DirectoryBootstrapDemand[] {
@@ -61,21 +54,7 @@ export function buildSessionBootstrapDemands(input: {
       projectExpanded ? "project-expanded" : "known-project",
     )
 
-    for (const group of section.groups) {
-      if (!group.directory || group.isArchivedBucket || group.isMain) continue
-      const groupExpanded = projectExpanded && !input.collapsedGroups.has(`${section.project.id}:${group.id}`)
-      let groupPriority: DirectoryBootstrapPriority = "background"
-      if (groupExpanded) {
-        groupPriority = "expanded"
-      } else if (projectExpanded) {
-        groupPriority = "visible"
-      }
-      add(
-        group.directory,
-        groupPriority,
-        groupExpanded ? "worktree-expanded" : "known-worktree",
-      )
-    }
+    // FORK: Bootstrap worktrees only when their session is selected; every directory costs an OpenCode instance.
   }
 
   add(input.currentDirectory, "selected", "current-directory")

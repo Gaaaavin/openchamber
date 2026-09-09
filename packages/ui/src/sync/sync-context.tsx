@@ -86,6 +86,7 @@ import { formatMessage, useI18nStore } from "@/lib/i18n"
 import { sessionEvents } from "@/lib/sessionEvents"
 import { listGlobalSessionPages } from "@/stores/globalSessions"
 import { areRequestArraysReferentiallyEqual, collectScopedBlockingRequests } from "./scoped-blocking-requests"
+import { disposeIdleOpenCodeInstance } from "./fork/instance-dispose"
 import { EMPTY_USER_MESSAGE_HISTORY_SNAPSHOT, buildUserMessageHistorySnapshot, type TranscriptPrompt, type UserMessageHistorySnapshot } from "./user-message-history"
 import {
   EMPTY_SESSION_MESSAGE_LOAD_STATE,
@@ -2472,6 +2473,8 @@ export function SyncProvider(props: {
         lastStatusPollAtByDirectoryRef.current.delete(directory)
         lastFullResyncAtByDirectoryRef.current.delete(directory)
         lastChildDiscoveryAtByDirectoryRef.current.delete(directory)
+        // FORK: release the matching in-process OpenCode instance after local eviction.
+        disposeIdleOpenCodeInstance(directory)
       },
       isLoadingSessions: () => false,
     })
@@ -2483,11 +2486,13 @@ export function SyncProvider(props: {
     const generation = ++globalBootstrapGeneration
     bootingRoot = true
     const globalActions = useGlobalSyncStore.getState().actions
+    // FORK: scope the global reads to the directory in view at call time, without
+    // re-running this bootstrap on every directory switch.
     bootstrapGlobal(props.sdk, (patch) => {
       if (globalBootstrapGeneration === generation) {
         globalActions.set(patch)
       }
-    })
+    }, currentDirectoryRef.current)
       .then(() => {
         if (globalBootstrapGeneration === generation) {
           bootedAt = Date.now()

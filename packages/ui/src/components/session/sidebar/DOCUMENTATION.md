@@ -28,8 +28,8 @@ kept at this root in `types.ts` and `utils.tsx`.
   Existing destinations are never removed; they get the same guidance.
 
 `MainLayout` and `VSCodeLayout` call `useSessionListSync({ isVSCode })`
-unconditionally. The hook publishes complete directory bootstrap demand,
-refreshes newly added topology, coalesces control events, and performs
+unconditionally. The hook publishes project-root and selected-directory demand,
+refreshes newly added project roots, coalesces control events, and performs
 authoritative cleanup. Root-level `useGlobalSessionsPolling` remains the only
 initial and 45-second global poller. `useSessionListSync` must not create a
 second global polling lifecycle.
@@ -49,8 +49,8 @@ project tree, with no Recent projection. VS Code excludes worktrees and managed
 Chats, while retaining its workspace-scoped grouped list and inline archived
 buckets.
 
-Directory demand always includes known project roots and worktrees. Visibility
-only changes priority. Row mounts must not start bootstrap work. Selection and
+Directory demand always includes known project roots. Worktrees enter demand
+only when a session in them is selected. Row mounts must not start bootstrap work. Selection and
 activity subscriptions stay session-scoped so a structural list update does not
 make every row observe unrelated streaming updates.
 
@@ -68,9 +68,9 @@ matching and ordering. Search does not fetch sessions or broaden list membership
 
 ## Loading rules
 
-- Always publish every known project root and worktree directory. Collapse/visibility changes priority only; they do not opt a directory out of authoritative refresh.
+- Always publish every known project root. Publish a worktree only when the current or selected session targets it.
 - Current directory and selected-session directory are `selected` demand and therefore run first.
-- Expanded projects/worktrees outrank merely visible and background groups.
+- Expanded project roots outrank background project roots.
 - The sync scheduler deduplicates, promotes, retries, and limits work. Sidebar components must not reproduce that lifecycle with mount effects.
 - Hide speculative work when the sidebar/chat surface is hidden: message prefetch, Git/PR enrichment and subscriptions, search listeners, sticky-header observation, and archived-folder derivation stop. The session row tree unmounts so row-owned status, permission, unseen, and viewport subscriptions do no background work. The outer sidebar remains mounted, preserving UI state and authoritative directory refresh for an immediate reopen; deferred derived work reruns from current state when visibility returns.
 - The sidebar does not subscribe its whole tree to the cross-directory live-session aggregate. Global create/structural/lifecycle snapshots drive rendered session metadata; the cached sync index only fills sessions not yet present globally and provides refresh fallback data. Row activity continues to come from the session-keyed live status index.

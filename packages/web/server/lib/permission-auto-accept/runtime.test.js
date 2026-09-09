@@ -107,13 +107,31 @@ describe('permission auto-accept runtime', () => {
       if (path === '/permission/pending/reply' && init.method === 'POST') return Response.json({});
       return Response.json({ id: 'root' });
     });
+    const { connect, emit } = createRuntime({
+      stored: { permissionAutoAccept: { sessions: { root: true } } },
+      fetchImpl,
+    });
+    await flush();
+    emit({ type: 'session.created', properties: { info: { id: 'root' } } }, '/project');
+    connect();
+    await flush();
+    const permissionLists = fetchImpl.mock.calls
+      .map(([url]) => new URL(url))
+      .filter((parsed) => parsed.pathname === '/permission');
+    expect(permissionLists.map((parsed) => parsed.searchParams.get('directory'))).toEqual(['/project']);
+    expect(fetchImpl.mock.calls.some(([url]) => new URL(url).pathname === '/permission/pending/reply')).toBe(true);
+  });
+
+  it('never lists permissions without a directory scope', async () => {
+    const fetchImpl = vi.fn(async () => new Response('[]'));
     const { connect } = createRuntime({
       stored: { permissionAutoAccept: { sessions: { root: true } } },
       fetchImpl,
     });
+    await flush();
     connect();
     await flush();
-    expect(fetchImpl.mock.calls.some(([url]) => new URL(url).pathname === '/permission/pending/reply')).toBe(true);
+    expect(fetchImpl.mock.calls.filter(([url]) => new URL(url).pathname === '/permission')).toEqual([]);
   });
 
   it('accepts existing pending permissions when a session policy is enabled', async () => {
