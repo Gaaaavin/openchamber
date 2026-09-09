@@ -185,9 +185,9 @@ describe('fork SessionErrorNotice', () => {
     expect(view.container.textContent).not.toContain('OpenCode did not start a reply');
   });
 
-  test('shows reconnecting regardless of elapsed time', async () => {
+  test('shows that the message is waiting for the connection', async () => {
     const view = await renderNotice({ ageMs: VERIFY_AFTER_MS + 1, connected: false });
-    expect(view.container.textContent).toContain('Reconnecting to OpenCode…');
+    expect(view.container.textContent).toContain('Your message is waiting for the connection.');
   });
 
   test('shows a warning with actions after the server confirms idle', async () => {

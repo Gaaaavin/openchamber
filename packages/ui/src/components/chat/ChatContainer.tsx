@@ -30,6 +30,7 @@ import { hasActiveQuestionToolInCurrentTurn, recoverPendingQuestionWithRetry } f
 import { StatusRowContainer } from './StatusRowContainer';
 import { SessionRecapNote } from '@/components/chat/SessionRecapSpacer';
 import { SessionErrorNotice } from '@/components/chat/fork/SessionErrorNotice'; // FORK: reply-wait UX, see FORK.md patch 1
+import { ConnectionIndicator } from '@/components/chat/fork/ConnectionIndicator'; // FORK: global stream reconnect state
 import ScrollToBottomButton from './components/ScrollToBottomButton';
 import { PromptNavigatorRail } from './components/PromptNavigatorRail';
 import { useAuthSessionStore } from '@/lib/runtime-auth-expiry';
@@ -1565,6 +1566,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 		<div ref={workStatusRowRef} className="flex h-full min-h-0 bg-background">
 		<ChatColumnSessionContext.Provider value={chatColumnSession}>
 		<div data-composer-bound className="relative flex min-w-0 flex-1 flex-col h-full bg-background">
+			<ConnectionIndicator /> {/* FORK: floats over the chat column without shifting messages */}
 			{returnToParentButton}
 			{sessionSurface}
 
