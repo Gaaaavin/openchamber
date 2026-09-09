@@ -375,11 +375,7 @@ interface MessageQueueActions {
     getQueueForTarget: (target: MessageQueueTarget) => QueuedMessage[];
     /** Server-owned queue: load the authoritative queue for the active runtime. */
     hydrate: () => Promise<void>;
-    /**
-     * Server-owned queue: re-read the server after the event stream had a gap.
-     * A no-op until a hydration has established ownership, since only then can
-     * hydration tell the server's own copies from an older build's local queue.
-     */
+    /** Server-owned queue: re-read after an event-stream gap. */
     resync: () => Promise<void>;
     /** Server-owned queue: apply one session's authoritative state (broadcast or response). */
     applyServerSession: (session: ServerQueueSession, revision: number, expectedRuntimeKey: string) => void;
@@ -629,7 +625,6 @@ export const useMessageQueueStore = create<MessageQueueStore>()(
                                 applyServerSession(result.session, result.revision, target.runtimeKey);
                                 return result.items.map(toQueuedMessage);
                             } catch (error) {
-                                // A 404 means the server already delivered or dropped the message.
                                 await refreshSession(target);
                                 throw error;
                             }
