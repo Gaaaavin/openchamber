@@ -2,13 +2,28 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { Window } from 'happy-dom';
 import React, { act, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { VirtualizedFile, Virtualizer } from '@pierre/diffs';
 
 import { useFilePreviewScrollPosition } from './useFilePreviewScrollPosition';
+
+type RestorePreview = ReturnType<typeof useFilePreviewScrollPosition>['restore'];
+
+class MeasuredPreviewFile extends VirtualizedFile {
+  lineTop = 1000;
+
+  override getLinePosition() {
+    return { top: this.lineTop, height: 20 };
+  }
+
+  override getNumericScrollAnchor() {
+    return { lineNumber: 51, top: this.lineTop };
+  }
+}
 
 function Preview({ positionKey, element, onReady }: {
   positionKey: string | null;
   element: HTMLElement;
-  onReady: (restore: () => void) => void;
+  onReady: (restore: RestorePreview) => void;
 }) {
   const { setScroller, restore } = useFilePreviewScrollPosition(positionKey);
   useLayoutEffect(() => {
@@ -27,10 +42,10 @@ describe('file preview scroll positions', () => {
   let height: number;
   let top: number;
   let left: number;
-  let restore: () => void;
+  let restore: RestorePreview;
   let prefix: string;
   let sequence = 0;
-  const onReady = (callback: () => void) => { restore = callback; };
+  const onReady = (callback: RestorePreview) => { restore = callback; };
 
   beforeEach(() => {
     windowInstance = new Window();
@@ -39,6 +54,7 @@ describe('file preview scroll positions', () => {
       document: windowInstance.document,
       HTMLElement: windowInstance.HTMLElement,
       Event: windowInstance.Event,
+      DOMRect: windowInstance.DOMRect,
       MutationObserver: windowInstance.MutationObserver,
       ResizeObserver: windowInstance.ResizeObserver,
       IS_REACT_ACT_ENVIRONMENT: true,
@@ -54,6 +70,7 @@ describe('file preview scroll positions', () => {
     left = 0;
     prefix = `preview-test-${sequence++}`;
     Object.defineProperties(scroller, {
+      clientHeight: { value: 100 },
       scrollTop: {
         get: () => top,
         set: (value: number) => { top = Math.max(0, Math.min(value, height - 100)); },
@@ -167,5 +184,34 @@ describe('file preview scroll positions', () => {
     await windowInstance.happyDOM.waitUntilComplete();
     restore();
     expect(top).toBe(50);
+  });
+
+  test('restores the same virtualized line after Pierre reconciles different height estimates', async () => {
+    const file = new MeasuredPreviewFile({}, new Virtualizer());
+    const node = document.createElement('div');
+    const line = document.createElement('div');
+    line.dataset.line = '';
+    line.dataset.lineIndex = '50';
+    node.attachShadow({ mode: 'open' }).append(line);
+    content.append(node);
+    line.getBoundingClientRect = () => new DOMRect(0, file.lineTop - top + 8, 100, 20);
+
+    await render('virtual');
+    scroll(1000);
+    restore(node, file);
+    await Promise.resolve();
+    expect(line.getBoundingClientRect().top).toBe(8);
+
+    await render(null);
+    scroll(0);
+    await render('virtual');
+    restore(node, file);
+    // onPostRender runs before Pierre's synchronous height reconciliation.
+    file.lineTop = 1500;
+    scroll(800);
+    await Promise.resolve();
+    expect(top).toBe(1500);
+    expect(line.getBoundingClientRect().top).toBe(8);
+    file.cleanUp();
   });
 });

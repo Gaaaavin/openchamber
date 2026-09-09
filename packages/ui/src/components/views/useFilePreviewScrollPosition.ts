@@ -21,10 +21,18 @@ export function useFilePreviewScrollPosition(positionKey: string | null) {
     if (node && instance instanceof VirtualizedFile) {
       virtualFileRef.current = { key: positionKey, file: instance, node };
     }
-    restoreRef.current?.();
-    // The scroll event can precede the virtualizer mounting the target lines.
-    // Capture again after rendering, when a numeric line anchor is available.
-    rememberRef.current?.();
+    const restorePosition = restoreRef.current;
+    const rememberPosition = rememberRef.current;
+    const finishRender = () => {
+      if (restoreRef.current !== restorePosition) return;
+      restorePosition?.();
+      rememberPosition?.();
+    };
+    // Pierre calls onPostRender before reconciling measured heights and applying
+    // its own scroll correction. Finish after that synchronous render pass,
+    // before paint, rather than saving estimates or having our restore undone.
+    if (instance) queueMicrotask(finishRender);
+    else finishRender();
   }, [positionKey]);
 
   useLayoutEffect(() => {
@@ -48,11 +56,13 @@ export function useFilePreviewScrollPosition(positionKey: string | null) {
       const lineElement = target.line && getLineElement(target.line.number);
       // Estimated heights locate the virtual window; the mounted row supplies
       // the final visual offset, including wrapping and Pierre's padding.
-      const targetTop = lineElement && target.line
-        ? scroller.scrollTop + lineElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top - target.line.offset
-        : linePosition && target.line
-        ? (file?.top ?? 0) + linePosition.top - target.line.offset
-        : target.top;
+      let targetTop = target.top;
+      if (target.line && linePosition) {
+        targetTop = (file?.top ?? 0) + linePosition.top - target.line.offset;
+      }
+      if (target.line && lineElement) {
+        targetTop = scroller.scrollTop + lineElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top - target.line.offset;
+      }
       scroller.scrollTop = targetTop;
       scroller.scrollLeft = target.left;
       if ((!target.line || lineElement) && Math.abs(scroller.scrollTop - targetTop) < 1 && Math.abs(scroller.scrollLeft - target.left) < 1) {
@@ -77,12 +87,13 @@ export function useFilePreviewScrollPosition(positionKey: string | null) {
       const file = getVirtualFile();
       const anchor = file?.getNumericScrollAnchor(scroller.scrollTop - (file.top ?? 0));
       const lineElement = anchor && getLineElement(anchor.lineNumber);
+      const offset = lineElement ? lineElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top : null;
       positions.delete(positionKey);
       positions.set(positionKey, {
         top: scroller.scrollTop,
         left: scroller.scrollLeft,
-        line: anchor && lineElement
-          ? { number: anchor.lineNumber, offset: lineElement.getBoundingClientRect().top - scroller.getBoundingClientRect().top }
+        line: anchor && offset !== null && offset >= 0 && offset < scroller.clientHeight
+          ? { number: anchor.lineNumber, offset }
           : undefined,
       });
       if (positions.size > MAX_POSITIONS) {
