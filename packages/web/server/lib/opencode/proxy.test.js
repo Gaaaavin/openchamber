@@ -91,6 +91,20 @@ describe('normalizeForwardedDirectoryHeaders', () => {
     });
   });
 
+  it('round-trips non-ASCII directory headers through URI encoding', () => {
+    const directory = '/Users/example/项目';
+    const encodedDirectory = encodeURIComponent(directory);
+    const headers = normalizeForwardedDirectoryHeaders({
+      'x-opencode-directory': encodedDirectory,
+      'x-opencode-directory-encoding': 'uri',
+    });
+
+    expect(headers).toEqual({
+      'x-opencode-directory': encodedDirectory,
+    });
+    expect(decodeURIComponent(headers['x-opencode-directory'])).toBe(directory);
+  });
+
   it('preserves unmarked percent sequences from direct clients', () => {
     const headers = normalizeForwardedDirectoryHeaders({
       'x-opencode-directory': '/Users/example/project%20literal',

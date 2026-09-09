@@ -139,7 +139,12 @@ export const normalizeForwardedDirectoryHeaders = (headers) => {
   }
 
   try {
-    headers['x-opencode-directory'] = decodeURIComponent(rawDirectory);
+    const decodedDirectory = decodeURIComponent(rawDirectory);
+    // Node HTTP headers are ByteStrings. Keep URI encoding when decoding would
+    // produce characters that cannot be forwarded; OpenCode decodes the value.
+    headers['x-opencode-directory'] = /^[\u0000-\u00ff]*$/.test(decodedDirectory)
+      ? decodedDirectory
+      : rawDirectory;
   } catch {
     // Leave malformed values untouched; upstream will reject invalid paths.
   }
@@ -283,6 +288,8 @@ export const registerOpenCodeProxy = (app, deps) => {
     getOpenCodeAuthHeaders,
     buildOpenCodeUrl,
     ensureOpenCodeApiPrefix,
+    resolveProjectDirectory = async () => ({ directory: null, error: null }),
+    logger = console,
     SSE_HEARTBEAT_INTERVAL_MS = DEFAULT_SSE_HEARTBEAT_INTERVAL_MS,
     SSE_UPSTREAM_STALL_TIMEOUT_MS = DEFAULT_UPSTREAM_STALL_TIMEOUT_MS,
     getSseUpstreamStallTimeoutMs = () => SSE_UPSTREAM_STALL_TIMEOUT_MS,
@@ -855,6 +862,35 @@ export const registerOpenCodeProxy = (app, deps) => {
     });
   }
 
+  let loggedDefaultDirectoryFailure = false;
+  // FORK: without this header OpenCode creates a server-cwd instance; global
+  // session lists need a header because a query would filter them.
+  app.use('/api', async (req, _res, next) => {
+    const hasDirectoryHeader = req.headers['x-opencode-directory'] !== undefined;
+    const hasDirectoryQuery = Object.prototype.hasOwnProperty.call(req.query ?? {}, 'directory');
+    if (hasDirectoryHeader || hasDirectoryQuery || req.path.startsWith('/global/')) {
+      return next();
+    }
+
+    try {
+      const resolved = await resolveProjectDirectory(req);
+      const directory = resolved?.directory;
+      if (directory?.trim()) {
+        req.headers['x-opencode-directory'] = encodeURIComponent(directory);
+        req.headers['x-opencode-directory-encoding'] = 'uri';
+      }
+    } catch (error) {
+      if (!loggedDefaultDirectoryFailure) {
+        loggedDefaultDirectoryFailure = true;
+        try {
+          logger.debug?.('[proxy] Failed to resolve default OpenCode directory:', error?.message ?? error);
+        } catch {
+        }
+      }
+    }
+    next();
+  });
+
   app.get('/api/session', (req, res, next) => {
     return forwardSanitizedSessionListRequest(req, res, next, 'session.list');
   });
@@ -896,11 +932,11 @@ export const registerOpenCodeProxy = (app, deps) => {
         if (req.headers?.['x-opencode-directory-encoding'] === 'uri') {
           const rawDirectory = req.headers['x-opencode-directory'];
           if (typeof rawDirectory === 'string') {
-            try {
-              proxyReq.setHeader('x-opencode-directory', decodeURIComponent(rawDirectory));
-            } catch {
-              proxyReq.setHeader('x-opencode-directory', rawDirectory);
-            }
+            const normalizedHeaders = normalizeForwardedDirectoryHeaders({
+              'x-opencode-directory': rawDirectory,
+              'x-opencode-directory-encoding': 'uri',
+            });
+            proxyReq.setHeader('x-opencode-directory', normalizedHeaders['x-opencode-directory']);
           }
           proxyReq.removeHeader?.('x-opencode-directory-encoding');
         }

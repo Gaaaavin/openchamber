@@ -14,6 +14,8 @@ Policy inheritance uses the nearest explicit session value. A child `false` ther
 
 `createPermissionAutoAcceptRuntime` loads and serializes policy writes, subscribes to the global OpenCode event hub, caches session lineage, retries transient replies, and reconciles pending permissions after startup, reconnect, and policy enablement. Enabling Auto-Accept for a session immediately accepts matching pending requests and keeps handling future requests without requiring a connected UI.
 
+Reconciliation only queries `/permission` with an explicit directory: the directories of policy-enabled sessions seen through the event hub, or the directory passed on policy enablement. A directory-less request would list OpenCode's cwd instance only, and creating that instance costs memory for nothing.
+
 Unknown lineage and failed policy loads fail closed. A failed pending-permission fetch is distinct from an empty successful response and never clears policy state.
 
 ## Routes

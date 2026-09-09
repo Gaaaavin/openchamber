@@ -66,7 +66,7 @@ The composer compares normalized attachment MIME types with the selected model's
 
 ### Layout-mounted session-list lifecycle
 
-`MainLayout` and `VSCodeLayout` each call `useSessionListSync({ isVSCode })` directly and unconditionally, outside Sidebar visibility, responsive, editor, settings, and compact-view branches. The hook selects the real topology inputs, publishes complete directory bootstrap demand through `ChildStoreManager`, refreshes topology additions (including all VS Code directories on its first mount), coalesces OpenChamber control events for 500ms, and supplies a memoized complete global active+archived input to authoritative cleanup. The root-level global poller owns the initial global refresh. MainLayout includes available worktrees; VS Code intentionally excludes them. Sidebar-local `session-created` worktree discovery is separate and full-app-only.
+`MainLayout` and `VSCodeLayout` each call `useSessionListSync({ isVSCode })` directly and unconditionally, outside Sidebar visibility, responsive, editor, settings, and compact-view branches. The hook publishes project-root and selected-directory bootstrap demand through `ChildStoreManager`, refreshes new project roots (including all VS Code project roots on its first mount), coalesces OpenChamber control events for 500ms, and supplies a memoized complete global active+archived input to authoritative cleanup. The root-level global poller owns the initial global refresh. Sidebar-local `session-created` worktree discovery is separate and full-app-only.
 
 ### Directory bootstrap scheduling
 
@@ -75,11 +75,12 @@ The composer compares normalized attachment MIME types with the selected model's
 - The scheduler runs at most two directory bootstraps concurrently.
 - Selected session/current directory demand outranks active-project, expanded, visible, and background demand.
 - Demand is deduplicated by normalized directory and can be promoted while queued.
-- The complete known project/worktree set is always published. Collapsed and off-screen directories remain background demand, so they refresh eventually rather than waiting for expansion.
+- Project roots are always published. A worktree is published only when the current or selected session targets it, avoiding an OpenCode instance for every discovered worktree.
 - A bootstrap holds its scheduler slot through critical state and the authoritative directory session-list fetch. Deferrable command/MCP/LSP/VCS/question/permission enrichment starts afterward without extending slot ownership or competing with the initial session-list request.
 - A system-resume signal, including Capacitor foreground resume, refreshes pending questions and permissions only for the active materialized directory. The refresh is deduplicated while in flight, preserves existing state on fetch failure, and leaves unopened directories untouched; normal stream reconnect recovery remains the broader catch-up path.
 - When a materialized current turn contains a pending/running question tool but that session's pending question record is missing, the mounted chat performs a question-only recovery scoped to that session. It tries at most three times with delays of 0, 500, and 1,500 ms, stops when the chat unmounts or changes sessions, and guards every attempt against runtime changes. This closes cold-start races without adding requests to ordinary session opens or scanning unrelated sessions and directories.
 - A mounted directory-store consumer pins that store for its lifetime. Eviction may dispose only unmounted directories, so optimistic actions and realtime events cannot move to a replacement store while visible React consumers remain subscribed to an older identity.
+- Disposing an unmounted directory store also requests disposal of its OpenCode instance, unless that directory is current or the global live-status index reports a busy session there.
 - Reconfiguration and runtime switching invalidate stale generations. A stale completion must not publish state into the new runtime.
 - Failure is recorded as `failed`; it is not converted into a successful empty snapshot. Forced demand can retry failed or completed work.
 - A failed bootstrap is classified as `os-permission` only when the owning runtime filesystem API independently confirms `EPERM`/`EACCES` for that exact directory. OpenCode/proxy error text is never used as permission evidence. The scheduler retains the directory-scoped reason so local Desktop can offer native folder selection before a forced retry.

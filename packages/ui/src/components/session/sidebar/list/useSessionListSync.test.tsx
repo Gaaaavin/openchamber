@@ -111,16 +111,29 @@ describe('useSessionListSync', () => {
     dom.restore();
   });
 
-  test('leaves initial global refresh to the root poller while publishing complete demand', () => {
+  test('leaves initial global refresh to the root poller while publishing project-root demand', () => {
     act(() => useSessionUIStore.setState({ availableWorktreesByProject: new Map([['/project', [worktree]]]) }));
     act(() => root.render(<LifecycleProbe isVSCode={false} />));
 
     expect(state.globalRefreshes).toBe(0);
     expect(state.demands).toHaveLength(1);
-    expect(state.demands[0]?.directories).toEqual(['/project', '/worktree']);
+    expect(state.demands[0]?.directories).toEqual(['/project']);
     expect(state.directoryRefreshes).toEqual([]);
     expect(state.subscriptions).toBe(1);
     expect(state.cleanupInputs.at(-1)).toEqual({ enabled: true, hasAuthoritativeGlobalSessions: true, sessionCount: 0, sessions: [] });
+  });
+
+  test('does not refresh or demand worktree directories when discovery adds them', () => {
+    act(() => root.render(<LifecycleProbe isVSCode={false} />));
+    const demandCount = state.demands.length;
+
+    act(() => useSessionUIStore.setState({
+      availableWorktreesByProject: new Map([['/project', [worktree]]]),
+    }));
+
+    expect(state.demands).toHaveLength(demandCount);
+    expect(state.demands.at(-1)?.directories).toEqual(['/project']);
+    expect(state.directoryRefreshes).toEqual([]);
   });
 
   test('refreshes every VS Code directory on first mount and only topology additions afterward', () => {

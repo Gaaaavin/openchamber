@@ -176,18 +176,32 @@ export function createPermissionAutoAcceptRuntime({
     return task;
   };
 
-  async function reconcilePending({ directories = [] } = {}) {
+  // FORK: `/permission` is instance-scoped, so a request without a directory
+  // only ever lists the server cwd (and makes OpenCode create an instance for
+  // it). Reconcile the directories of policy-enabled sessions seen so far instead.
+  const policySessionDirectories = () => {
+    const directories = new Set();
+    for (const [sessionId, info] of sessions) {
+      if (policy.sessions[sessionId] === true && typeof info.directory === 'string' && info.directory) {
+        directories.add(info.directory);
+      }
+    }
+    return [...directories];
+  };
+
+  async function reconcilePending({ directories } = {}) {
+    await load();
+    const requested = Array.isArray(directories) ? directories : policySessionDirectories();
     const normalizedDirectories = Array.from(new Set(
-      directories.filter((directory) => typeof directory === 'string' && directory.trim()).map((directory) => directory.trim()),
+      requested.filter((directory) => typeof directory === 'string' && directory.trim()).map((directory) => directory.trim()),
     ));
-    const key = normalizedDirectories.length > 0 ? normalizedDirectories.join('\n') : 'all';
+    if (normalizedDirectories.length === 0) return;
+    const key = normalizedDirectories.join('\n');
     const existing = reconcilePromises.get(key);
     if (existing) return existing;
     const task = (async () => {
-      await load();
-      const scopes = [undefined, ...normalizedDirectories];
       const pendingById = new Map();
-      for (const directory of scopes) {
+      for (const directory of normalizedDirectories) {
         let payload;
         try {
           payload = await request('/permission', { directory });

@@ -254,10 +254,10 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
 
   // Second bootstrap-demand owner: the layout-level useSessionListSync keeps
   // every known directory alive at background priority even when the sidebar
-  // is hidden, but only the visible collection knows which projects and
-  // groups are EXPANDED. Without this owner, expanded projects bootstrapped
-  // serialized at background priority (one directory at a time) instead of
-  // concurrently at expanded priority.
+  // is hidden, but only the visible collection knows which projects are
+  // EXPANDED. Without this owner, expanded projects bootstrapped serialized at
+  // background priority (one directory at a time) instead of concurrently at
+  // expanded priority.
   const childStores = useChildStoreManager();
   const expansionDemandOwner = `session-collection-expansion:${React.useId()}`;
   React.useEffect(() => {
@@ -265,7 +265,6 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
       projectSections,
       activeProjectId: view.activeProjectId,
       collapsedProjects: projectView.collapsedProjects,
-      collapsedGroups: projectView.collapsedGroups,
       currentDirectory: null,
       currentSessionDirectory: null,
     }));

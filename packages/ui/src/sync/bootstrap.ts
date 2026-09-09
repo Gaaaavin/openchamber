@@ -68,15 +68,16 @@ function projectID(directory: string, projects: Project[]) {
 export async function bootstrapGlobal(
   sdk: OpencodeClient,
   set: (patch: Partial<GlobalState>) => void,
+  directory?: string,
 ) {
   const results = await Promise.allSettled([
     // Sync chat classification needs the chats root before session lists load;
     // it resolves alongside the other bootstrap calls, not ahead of them.
     warmChatsRootDirectory(),
-    retry(() => sdk.path.get().then((x) => set({ path: unwrap(x, "path.get") }))),
+    retry(() => sdk.path.get(directory ? { directory } : undefined).then((x) => set({ path: unwrap(x, "path.get") }))),
     retry(() => sdk.global.config.get().then((x) => set({ config: unwrap(x, "global.config.get") }))),
     retry(() =>
-      sdk.project.list().then((x) => {
+      sdk.project.list(directory ? { directory } : undefined).then((x) => {
         const data = unwrap(x, "project.list")
         const projects = data
           .filter((p): p is Project => !!p?.id)
@@ -155,24 +156,25 @@ export async function bootstrapDirectory(input: {
   // ---------------------------------------------------------------------------
   // Phase 1: Critical path — block until these resolve so the UI can render.
   // These are the minimum data needed to show a functional chat interface.
+  // FORK: unscoped calls use OpenCode's cwd instance, wasting ~1 GB and returning the wrong directory's data.
   // ---------------------------------------------------------------------------
   const phase1Results = await Promise.allSettled([
     seededProject
       ? Promise.resolve()
-      : retry(() => sdk.project.current().then((x) => commit({ project: unwrap(x, "project.current").id }))),
-    retry(() => sdk.config.get().then((x) => {
+      : retry(() => sdk.project.current(directory ? { directory } : undefined).then((x) => commit({ project: unwrap(x, "project.current").id }))),
+    retry(() => sdk.config.get(directory ? { directory } : undefined).then((x) => {
       const config = unwrap(x, "config.get")
       if (commit({ config })) emitSyncConfigChanged(directory, config)
     })),
     retry(() =>
-      sdk.path.get().then((x) => {
+      sdk.path.get(directory ? { directory } : undefined).then((x) => {
         const data = unwrap(x, "path.get")
         commit({ path: data })
         const next = projectID(data?.directory ?? directory, g.projects)
         if (next) commit({ project: next })
       }),
     ),
-    retry(() => sdk.session.status().then((x) => commit({ session_status: unwrap(x, "session.status"), sessionStatusReady: true }))),
+    retry(() => sdk.session.status(directory ? { directory } : undefined).then((x) => commit({ session_status: unwrap(x, "session.status"), sessionStatusReady: true }))),
   ])
 
   if (input.isStale?.()) return "stale"
@@ -206,11 +208,11 @@ export async function bootstrapDirectory(input: {
   // These enrich the UI but aren't required for basic functionality.
   // ---------------------------------------------------------------------------
   const runDeferredPhase = () => Promise.allSettled([
-    retry(() => sdk.command.list().then((x) => commit({ command: unwrap(x, "command.list") }))),
-    retry(() => sdk.mcp.status().then((x) => commit({ mcp: unwrap(x, "mcp.status") }))),
-    retry(() => sdk.lsp.status().then((x) => commit({ lsp: unwrap(x, "lsp.status") }))),
+    retry(() => sdk.command.list(directory ? { directory } : undefined).then((x) => commit({ command: unwrap(x, "command.list") }))),
+    retry(() => sdk.mcp.status(directory ? { directory } : undefined).then((x) => commit({ mcp: unwrap(x, "mcp.status") }))),
+    retry(() => sdk.lsp.status(directory ? { directory } : undefined).then((x) => commit({ lsp: unwrap(x, "lsp.status") }))),
     retry(() =>
-      sdk.vcs.get().then((x) => {
+      sdk.vcs.get(directory ? { directory } : undefined).then((x) => {
         const current = getState()
         if (x.error) {
           throw new Error(`vcs.get failed: ${String(x.error)}`)

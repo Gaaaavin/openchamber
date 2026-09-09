@@ -289,6 +289,7 @@ export class ChildStoreManager {
   readonly children = new Map<string, StoreApi<DirectoryStore>>()
   private readonly lifecycle = new Map<string, DirState>()
   private readonly pins = new Map<string, number>()
+  private readonly requestedEvictions = new Set<string>()
   private evictionScheduled = false
   private readonly disposers = new Map<string, () => void>()
   private readonly registrySubscribers = new Set<() => void>()
@@ -388,6 +389,7 @@ export class ChildStoreManager {
       return
     }
     this.pins.delete(normalizedDirectory)
+    if (this.requestedEvictions.has(normalizedDirectory) && this.disposeDirectory(normalizedDirectory)) return
     // Releasing the final consumer is an explicit lifecycle edge, not a render-
     // path access, so this pass stays synchronous.
     this.runEviction()
@@ -683,6 +685,7 @@ export class ChildStoreManager {
     }
 
     this.lifecycle.delete(directory)
+    this.requestedEvictions.delete(directory)
     this.bootstrapQueue.delete(directory)
     this.manualBootstrapDemands.delete(directory)
     this.bootstrapStates.delete(directory)
@@ -698,6 +701,15 @@ export class ChildStoreManager {
     }
     this.onDispose?.(directory)
     return true
+  }
+
+  evictDirectory(directory: string, activeDirectory?: string | null): boolean {
+    const normalizedDirectory = normalizePath(directory)
+    if (!normalizedDirectory || normalizePath(activeDirectory) === normalizedDirectory) return false
+    if (!this.children.has(normalizedDirectory)) return false
+
+    this.requestedEvictions.add(normalizedDirectory)
+    return this.disposeDirectory(normalizedDirectory)
   }
 
   runEviction(skip?: string) {
@@ -745,6 +757,7 @@ export class ChildStoreManager {
     this.notifyRegistrySubscribers()
     this.lifecycle.clear()
     this.pins.clear()
+    this.requestedEvictions.clear()
     this.disposers.clear()
     this.bootstrapQueue.clear()
     this.runningBootstraps.clear()

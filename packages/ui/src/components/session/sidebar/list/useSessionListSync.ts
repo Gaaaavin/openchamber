@@ -25,10 +25,10 @@ export const useSessionListSync = ({
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const currentDirectory = useDirectoryStore((state) => state.currentDirectory);
   const currentSessionDirectory = useSessionUIStore((state) => state.currentSessionDirectory);
-  const availableWorktreesByProject = useSessionUIStore((state) => isVSCode ? EMPTY_WORKTREES_BY_PROJECT : state.availableWorktreesByProject);
+  // FORK: Keep automatic bootstrap and refresh scoped to project roots, not discovered worktrees.
   const knownDirectories = React.useMemo(
-    () => buildKnownSessionDirectories(projects, availableWorktreesByProject, { includeWorktrees: !isVSCode }),
-    [availableWorktreesByProject, isVSCode, projects],
+    () => buildKnownSessionDirectories(projects, EMPTY_WORKTREES_BY_PROJECT, { includeWorktrees: false }),
+    [projects],
   );
   const globalActiveSessions = useGlobalSessionsStore((state) => state.activeSessions);
   const archivedSessions = useGlobalSessionsStore((state) => state.archivedSessions);
@@ -41,7 +41,6 @@ export const useSessionListSync = ({
       activeProjectDirectory: normalizePath(projects.find((project) => project.id === activeProjectId)?.path ?? null),
       activeProjectId,
       collapsedProjects: new Set(),
-      collapsedGroups: new Set(),
       currentDirectory,
       currentSessionDirectory,
     }));

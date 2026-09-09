@@ -1019,6 +1019,7 @@ const serverUtilsRuntime = createServerUtilsRuntime({
   getOpenCodeAuthHeaders,
   buildOpenCodeUrl,
   ensureOpenCodeApiPrefix,
+  resolveProjectDirectory,
   getUpstreamStallTimeoutMs,
   getUiNotificationClients: () => uiNotificationClients,
   getOpenCodePort: () => openCodePort,
