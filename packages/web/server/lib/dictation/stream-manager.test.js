@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { EventEmitter } from 'events';
 
 import { DictationStreamManager } from './stream-manager.js';
@@ -6,9 +6,12 @@ import { DictationStreamManager } from './stream-manager.js';
 const FORMAT = 'audio/pcm;rate=16000;bits=16';
 
 class FakeSttSession extends EventEmitter {
-  constructor({ transcriptBySegment = () => 'hello world' } = {}) {
+  constructor({ transcriptBySegment = () => 'hello world', segmentHints, deferCommits = false } = {}) {
     super();
     this.requiredSampleRate = 16000;
+    this.segmentHints = segmentHints;
+    this.deferCommits = deferCommits;
+    this.operations = [];
     this.appended = [];
     this.commits = 0;
     this.clears = 0;
@@ -21,12 +24,15 @@ class FakeSttSession extends EventEmitter {
 
   appendPcm16(buf) {
     this.appended.push(buf);
+    this.operations.push(['append', buf.length]);
   }
 
   commit() {
+    this.operations.push(['commit']);
     this.commits += 1;
     const segmentId = `seg-${this.segmentCounter}`;
     this.segmentCounter += 1;
+    if (this.deferCommits) return;
     this.emit('committed', { segmentId, previousSegmentId: null });
     setTimeout(() => {
       this.emit('transcript', {
@@ -38,6 +44,7 @@ class FakeSttSession extends EventEmitter {
   }
 
   clear() {
+    this.operations.push(['clear']);
     this.clears += 1;
   }
 
@@ -248,5 +255,138 @@ describe('DictationStreamManager', () => {
 
     expect(session.commits).toBe(0);
     expect(session.clears).toBe(1);
+  });
+
+  it('uses the session model hard cap instead of the manager defaults', async () => {
+    const session = new FakeSttSession({ segmentHints: { minSeconds: 2, maxSeconds: 4 } });
+    const { manager } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    for (let seq = 0; seq < 4; seq += 1) {
+      manager.handleChunk({ dictationId: 'd1', seq, audioBase64: loudChunkBase64(16000) });
+      expect(session.commits).toBe(seq === 3 ? 1 : 0);
+    }
+    manager.cleanupAll();
+  });
+
+  it.each([
+    undefined,
+    { minSeconds: NaN, maxSeconds: 4 },
+    { minSeconds: 2, maxSeconds: Infinity },
+    { minSeconds: 0, maxSeconds: 4 },
+    { minSeconds: 2, maxSeconds: -4 },
+    { minSeconds: 5, maxSeconds: 4 },
+  ])('keeps 60/90 defaults with absent or invalid hints: %j', async (segmentHints) => {
+    const session = new FakeSttSession({ segmentHints });
+    const { manager } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    for (let seq = 0; seq < 90; seq += 1) {
+      manager.handleChunk({ dictationId: 'd1', seq, audioBase64: loudChunkBase64(16000) });
+      expect(session.commits).toBe(seq === 89 ? 1 : 0);
+    }
+    expect(manager.streams.get('d1').segmentMinBytes).toBe(60 * 32000);
+    manager.cleanupAll();
+  });
+
+  it.each([0, 500])('splits inside a chunk at quiet peak %i and accounts only for the remainder', async (quietPeak) => {
+    const session = new FakeSttSession({ segmentHints: { minSeconds: 2, maxSeconds: 4 } });
+    const { manager } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    for (let seq = 0; seq < 2; seq += 1) {
+      manager.handleChunk({ dictationId: 'd1', seq, audioBase64: loudChunkBase64(16000) });
+    }
+    const chunk = Buffer.concat([
+      Buffer.from(loudChunkBase64(9600), 'base64'),
+      Buffer.from(loudChunkBase64(6400, quietPeak), 'base64'),
+    ]);
+    manager.handleChunk({ dictationId: 'd1', seq: 2, audioBase64: chunk.toString('base64') });
+    expect(session.operations.slice(-3)).toEqual([
+      ['append', 25600], ['commit'], ['append', 6400],
+    ]);
+    expect(Buffer.concat(session.appended.slice(-2))).toEqual(chunk);
+    const state = manager.streams.get('d1');
+    expect(state.bytesSinceCommit).toBe(6400);
+    expect(state.peakSinceCommit).toBe(quietPeak);
+    expect(state.lastChunkPeak).toBe(quietPeak);
+    // The remainder counts toward the next cap, without carrying the old peak.
+    for (let seq = 3; seq < 6; seq += 1) {
+      manager.handleChunk({ dictationId: 'd1', seq, audioBase64: loudChunkBase64(16000, 500) });
+      expect(session.commits).toBe(1);
+    }
+    manager.handleChunk({ dictationId: 'd1', seq: 6, audioBase64: loudChunkBase64(12800, 500) });
+    expect(session.commits).toBe(2);
+    manager.cleanupAll();
+  });
+
+  it('does not split a mid-chunk peak above the relative quiet threshold', async () => {
+    const session = new FakeSttSession({ segmentHints: { minSeconds: 2, maxSeconds: 4 } });
+    const { manager } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    manager.handleChunk({ dictationId: 'd1', seq: 0, audioBase64: loudChunkBase64(32000) });
+    const chunk = Buffer.concat([8000, 8000, 2000, 8000, 8000].map(
+      (peak) => Buffer.from(loudChunkBase64(3200, peak), 'base64'),
+    ));
+    manager.handleChunk({ dictationId: 'd1', seq: 1, audioBase64: chunk.toString('base64') });
+    expect(session.commits).toBe(0);
+    expect(session.appended.at(-1)).toEqual(chunk);
+    manager.cleanupAll();
+  });
+
+  it('clears a quiet prefix without dropping the loud remainder', async () => {
+    const session = new FakeSttSession({ segmentHints: { minSeconds: 2, maxSeconds: 4 } });
+    const { manager } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    manager.handleChunk({ dictationId: 'd1', seq: 0, audioBase64: silentChunkBase64(28800) });
+    const chunk = Buffer.concat([
+      Buffer.from(silentChunkBase64(3200), 'base64'),
+      Buffer.from(loudChunkBase64(12800), 'base64'),
+    ]);
+    manager.handleChunk({ dictationId: 'd1', seq: 1, audioBase64: chunk.toString('base64') });
+    expect(session.operations.slice(-3)).toEqual([
+      ['append', 6400], ['clear'], ['append', 25600],
+    ]);
+    expect(manager.streams.get('d1').peakSinceCommit).toBe(8000);
+    manager.cleanupAll();
+  });
+
+  it('waits for delayed commit acknowledgements and clears the split silence tail', async () => {
+    const session = new FakeSttSession({
+      segmentHints: { minSeconds: 2, maxSeconds: 4 }, deferCommits: true,
+    });
+    const { manager, messages } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    manager.handleChunk({ dictationId: 'd1', seq: 0, audioBase64: loudChunkBase64(32000) });
+    const chunk = Buffer.concat([
+      Buffer.from(loudChunkBase64(9600), 'base64'),
+      Buffer.from(silentChunkBase64(6400), 'base64'),
+    ]);
+    manager.handleChunk({ dictationId: 'd1', seq: 1, audioBase64: chunk.toString('base64') });
+    expect(manager.streams.get('d1').pendingCommits).toBe(1);
+    manager.handleFinish('d1', 1);
+    expect(session.clears).toBe(1);
+    expect(messages.some((m) => m.type === 'final')).toBe(false);
+    session.emit('committed', { segmentId: 'seg-0' });
+    expect(messages.some((m) => m.type === 'final')).toBe(false);
+    session.emit('transcript', { segmentId: 'seg-0', transcript: 'complete', isFinal: true });
+    expect(messages.find((m) => m.type === 'final').payload.text).toBe('complete');
+    expect(session.closed).toBe(true);
+  });
+
+  it('suppresses quiet-window and hard-cap auto-splits while finish waits for missing chunks', async () => {
+    const session = new FakeSttSession({ segmentHints: { minSeconds: 2, maxSeconds: 4 } });
+    const { manager, messages } = createManager(session);
+    await manager.handleStart('d1', FORMAT);
+    manager.handleChunk({ dictationId: 'd1', seq: 0, audioBase64: loudChunkBase64(32000) });
+    manager.handleFinish('d1', 2);
+    const chunk = Buffer.concat([
+      Buffer.from(loudChunkBase64(9600), 'base64'),
+      Buffer.from(silentChunkBase64(6400), 'base64'),
+    ]);
+    manager.handleChunk({ dictationId: 'd1', seq: 2, audioBase64: loudChunkBase64(16000) });
+    manager.handleChunk({ dictationId: 'd1', seq: 1, audioBase64: chunk.toString('base64') });
+    expect(session.operations).toEqual([
+      ['append', 64000], ['append', 32000], ['append', 32000], ['commit'],
+    ]);
+    await waitFor(() => messages.some((m) => m.type === 'final'));
+    expect(session.commits).toBe(1);
   });
 });

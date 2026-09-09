@@ -77,11 +77,29 @@ openaiCompatible?: { baseUrl, model, apiKey } }`.
 
 ## Segmentation
 
-A dictation is one segment unless it runs long. Past `segmentMinSeconds`
-(60 s) the manager commits on the first silent chunk, so cuts land at a pause
-rather than mid-word; `segmentMaxSeconds` (90 s) is a hard cap for speech with
-no pause in it. Client chunks are ~1 s, so "silent chunk" is roughly a second
-of silence.
+A dictation is one segment unless it runs long. The manager defaults remain
+60 s minimum and 90 s maximum for Parakeet. Local catalog entries can declare
+`segment: { minSeconds, maxSeconds }`, exposed as read-only `segmentHints` on
+the worker-backed session. The manager resolves missing bounds from its
+defaults and falls back to both defaults if either bound is non-finite,
+non-positive, or the minimum exceeds the maximum. Sessions without hints,
+including OpenAI-compatible sessions, retain the defaults.
+
+Qwen3-ASR uses 10/20 s bounds because its decoder has a fixed 512-token KV
+context. About 20 prompt tokens leave roughly 490 for audio and text. At 13
+audio tokens/s plus about 5 Mandarin text tokens/s, the absolute ceiling is
+roughly 27 s. A 20 s cap leaves margin for fast speech. Measured without these
+bounds, clips longer than about 36 s returned only `language`, and clips of
+25-36 s silently lost transcript tails. The recognizer sets `maxNewTokens` to
+512 rather than sherpa's default 128; `maxTotalLen` remains model-derived.
+
+Once a segment reaches its minimum, a whole chunk with PCM peak below 300
+is appended and committed first. Otherwise the manager scans the resampled
+chunk in full 200 ms windows and splits at the end of the first quiet window
+that reaches the minimum. Quiet means below -20 dB relative to the segment
+peak so far, with a floor of 300. The remainder starts the next segment with
+its own byte and peak accounting. The hard cap remains the final rule when
+no pause qualifies. Finish disables auto-splitting while missing chunks drain.
 
 The bounds exist because Parakeet is a full-attention conformer: decode cost
 and peak memory grow quadratically with segment length. Measured on Parakeet

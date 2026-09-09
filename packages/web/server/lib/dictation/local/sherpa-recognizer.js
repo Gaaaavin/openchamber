@@ -84,6 +84,7 @@ export class SherpaOfflineRecognizerEngine {
               decoder: config.decoder,
               tokenizer: config.tokenizer,
               hotwords: '',
+              maxNewTokens: 512,
             },
             tokens: '',
             numThreads: qwen3AsrThreads(),

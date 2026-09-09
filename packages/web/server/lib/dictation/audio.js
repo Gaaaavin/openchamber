@@ -82,6 +82,32 @@ export function pcm16leToFloat32(pcm16le, gain = 1) {
   return out;
 }
 
+const QUIET_RATIO = 0.1;
+
+/**
+ * Return the end of the first full quiet window, or 0 when none qualifies.
+ * The relative threshold uses only audio up to that window, never future peaks.
+ * @param {Buffer} buffer
+ * @param {{ windowBytes: number, threshold: number, minBytesBeforeSplit: number,
+ *           referencePeak?: number }} options
+ */
+export function findQuietSplitOffset(buffer, {
+  windowBytes, threshold, minBytesBeforeSplit, referencePeak = 0,
+}) {
+  const alignedWindowBytes = Math.floor(windowBytes / 2) * 2;
+  if (!Number.isFinite(alignedWindowBytes) || alignedWindowBytes < 2) {
+    throw new Error('Quiet window must contain at least one PCM16 sample');
+  }
+  for (let end = alignedWindowBytes; end <= buffer.length; end += alignedWindowBytes) {
+    const peak = pcm16lePeakAbs(buffer.subarray(end - alignedWindowBytes, end));
+    referencePeak = Math.max(referencePeak, peak);
+    if (end >= minBytesBeforeSplit && peak < Math.max(threshold, QUIET_RATIO * referencePeak)) {
+      return end;
+    }
+  }
+  return 0;
+}
+
 /**
  * Wrap raw PCM16LE mono audio in a WAV container.
  * @param {Buffer} pcmBuffer

@@ -16,6 +16,9 @@ export const LOCAL_STT_MODEL_CATALOG = {
   // FORK: Qwen3-ASR is the default local dictation model on Apple Silicon.
   'qwen3-asr-0.6b-int8': {
     type: 'qwen3_asr',
+    // 512 tokens - ~20 prompt = ~490; 13 audio + ~5 text tok/s = ~18 tok/s.
+    // The absolute ceiling is ~27s; 20s leaves margin for fast speech.
+    segment: { minSeconds: 10, maxSeconds: 20 },
     archiveUrl:
       'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2',
     extractedDir: 'sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25',

@@ -8,8 +8,8 @@
  * - Reorders inbound chunks by `seq` and acks the highest contiguous seq.
  * - Resamples client PCM (16 kHz by default) to the provider's required rate.
  * - Segments long dictations at natural pauses: past `segmentMinSeconds` of
- *   audio it commits on the first silent chunk, and `segmentMaxSeconds` is a
- *   hard cap for speech with no pause in it. Silence-only segments are
+ *   audio it commits on a quiet chunk or sub-chunk window. `segmentMaxSeconds`
+ *   is a hard cap for speech with no pause in it. Silence-only segments are
  *   cleared instead of committed.
  * - Concatenates per-segment transcripts into live partials and emits the
  *   final text once every committed segment has a final transcript. The
@@ -19,7 +19,7 @@
  * - Applies an adaptive finalization timeout budget based on pending work.
  */
 
-import { Pcm16MonoResampler, parsePcmRateFromFormat, pcm16lePeakAbs } from './audio.js';
+import { Pcm16MonoResampler, findQuietSplitOffset, parsePcmRateFromFormat, pcm16lePeakAbs } from './audio.js';
 
 const DEFAULT_FINAL_TIMEOUT_MS = 10000;
 // Parakeet is a full-attention conformer: decode cost and peak memory grow
@@ -39,22 +39,6 @@ const SILENCE_PEAK_THRESHOLD = 300;
 const secondsToPcm16Bytes = (seconds, sampleRate) =>
   seconds > 0 ? Math.max(1, Math.round(seconds * sampleRate * 2)) : 0;
 
-/**
- * Split the current segment once it is long enough to be worth decoding on its
- * own and the speaker has just gone quiet, or unconditionally at the hard cap.
- * Client chunks are ~1s, so a quiet chunk is roughly a second of silence — long
- * enough to be a sentence boundary rather than a gap between words.
- */
-function shouldSplitSegment(state) {
-  if (state.segmentMaxBytes > 0 && state.bytesSinceCommit >= state.segmentMaxBytes) {
-    return true;
-  }
-  if (state.segmentMinBytes <= 0 || state.bytesSinceCommit < state.segmentMinBytes) {
-    return false;
-  }
-  return state.lastChunkPeak < SILENCE_PEAK_THRESHOLD;
-}
-
 export class DictationStreamManager {
   /**
    * @param {object} params
@@ -62,7 +46,7 @@ export class DictationStreamManager {
    * @param {(startOptions: object) => Promise<{ session: object } | { error: string, retryable: boolean, reasonCode?: string }>} params.createSttSession
    *   Resolves a connected streaming transcription session for one dictation.
    *   The streaming transcription session contract:
-   *   { requiredSampleRate, appendPcm16(buf), commit(), clear(), close(), on(event, handler) }
+   *   { requiredSampleRate, segmentHints?, appendPcm16(buf), commit(), clear(), close(), on(event, handler) }
    * @param {number} [params.finalTimeoutMs]
    * @param {number} [params.segmentMinSeconds] audio before a pause may split a segment
    * @param {number} [params.segmentMaxSeconds] hard segment cap for pauseless speech
@@ -158,6 +142,17 @@ export class DictationStreamManager {
       this.failAndCleanupStream(dictationId, message, true);
     });
 
+    let segmentMinSeconds = stt.segmentHints?.minSeconds ?? this.segmentMinSeconds;
+    let segmentMaxSeconds = stt.segmentHints?.maxSeconds ?? this.segmentMaxSeconds;
+    if (
+      !Number.isFinite(segmentMinSeconds) || segmentMinSeconds <= 0 ||
+      !Number.isFinite(segmentMaxSeconds) || segmentMaxSeconds <= 0 ||
+      segmentMinSeconds > segmentMaxSeconds
+    ) {
+      segmentMinSeconds = this.segmentMinSeconds;
+      segmentMaxSeconds = this.segmentMaxSeconds;
+    }
+
     this.streams.set(dictationId, {
       dictationId,
       inputFormat: format,
@@ -171,8 +166,8 @@ export class DictationStreamManager {
       receivedChunks: new Map(),
       nextSeqToForward: 0,
       ackSeq: -1,
-      segmentMinBytes: secondsToPcm16Bytes(this.segmentMinSeconds, stt.requiredSampleRate),
-      segmentMaxBytes: secondsToPcm16Bytes(this.segmentMaxSeconds, stt.requiredSampleRate),
+      segmentMinBytes: secondsToPcm16Bytes(segmentMinSeconds, stt.requiredSampleRate),
+      segmentMaxBytes: secondsToPcm16Bytes(segmentMaxSeconds, stt.requiredSampleRate),
       bytesSinceCommit: 0,
       peakSinceCommit: 0,
       lastChunkPeak: 0,
@@ -228,12 +223,8 @@ export class DictationStreamManager {
 
       const resampled = state.resampler ? state.resampler.processChunk(pcm16) : pcm16;
       if (resampled.length > 0) {
-        state.stt.appendPcm16(resampled);
-        state.bytesSinceCommit += resampled.length;
-        state.lastChunkPeak = pcm16lePeakAbs(resampled);
-        state.peakSinceCommit = Math.max(state.peakSinceCommit, state.lastChunkPeak);
         try {
-          this.maybeAutoCommitSegment(state);
+          this.maybeAutoCommitSegment(state, resampled);
         } catch (error) {
           this.failAndCleanupStream(dictationId, error?.message || String(error), true);
           return;
@@ -369,25 +360,46 @@ export class DictationStreamManager {
     );
   }
 
-  maybeAutoCommitSegment(state) {
-    if (state.finishRequested) {
-      return;
-    }
-    if (!shouldSplitSegment(state)) {
-      return;
-    }
-    if (state.peakSinceCommit < SILENCE_PEAK_THRESHOLD) {
-      state.stt.clear();
-      state.bytesSinceCommit = 0;
-      state.peakSinceCommit = 0;
-      state.lastChunkPeak = 0;
-      return;
-    }
+  maybeAutoCommitSegment(state, chunk) {
+    const chunkPeak = pcm16lePeakAbs(chunk);
+    const pastMinimum = state.segmentMinBytes > 0 &&
+      state.bytesSinceCommit + chunk.length >= state.segmentMinBytes;
+    const quietChunk = chunkPeak < SILENCE_PEAK_THRESHOLD;
+    const splitOffset = !state.finishRequested && pastMinimum && !quietChunk
+      ? findQuietSplitOffset(chunk, {
+          windowBytes: secondsToPcm16Bytes(0.2, state.outputRate),
+          threshold: SILENCE_PEAK_THRESHOLD,
+          minBytesBeforeSplit: state.segmentMinBytes - state.bytesSinceCommit,
+          referencePeak: state.peakSinceCommit,
+        })
+      : 0;
+    const segmentChunk = splitOffset ? chunk.subarray(0, splitOffset) : chunk;
+    state.stt.appendPcm16(segmentChunk);
+    state.bytesSinceCommit += segmentChunk.length;
+    state.lastChunkPeak = splitOffset ? pcm16lePeakAbs(segmentChunk) : chunkPeak;
+    state.peakSinceCommit = Math.max(state.peakSinceCommit, state.lastChunkPeak);
 
+    const atHardCap = state.segmentMaxBytes > 0 && state.bytesSinceCommit >= state.segmentMaxBytes;
+    if (state.finishRequested || !((pastMinimum && quietChunk) || splitOffset || atHardCap)) {
+      return;
+    }
+    const silenceOnly = state.peakSinceCommit < SILENCE_PEAK_THRESHOLD;
     state.bytesSinceCommit = 0;
     state.peakSinceCommit = 0;
     state.lastChunkPeak = 0;
-    this.commitSegment(state);
+    if (silenceOnly) {
+      state.stt.clear();
+    } else {
+      this.commitSegment(state);
+    }
+
+    if (splitOffset && splitOffset < chunk.length) {
+      const remainder = chunk.subarray(splitOffset);
+      state.stt.appendPcm16(remainder);
+      state.bytesSinceCommit = remainder.length;
+      state.lastChunkPeak = pcm16lePeakAbs(remainder);
+      state.peakSinceCommit = state.lastChunkPeak;
+    }
   }
 
   /**
