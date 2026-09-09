@@ -13,6 +13,7 @@ import { EventEmitter } from 'events';
 import { fileURLToPath } from 'url';
 
 import { applySherpaLoaderEnv } from './sherpa-loader.js';
+import { getLocalSttModelSpec } from './model-catalog.js';
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 const DEFAULT_IDLE_TTL_MS = 5 * 60 * 1000;
@@ -298,6 +299,10 @@ export class WorkerBackedTranscriptionSession extends EventEmitter {
     this.client = client;
     this.modelConfig = modelConfig;
     this.requiredSampleRate = DEFAULT_LOCAL_SAMPLE_RATE;
+    Object.defineProperty(this, 'segmentHints', {
+      value: getLocalSttModelSpec(modelConfig.modelId).segment,
+      enumerable: true,
+    });
     this.connectedSessionId = null;
     this.connecting = null;
   }
