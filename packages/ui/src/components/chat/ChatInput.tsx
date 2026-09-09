@@ -503,10 +503,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     }, [message, newSessionDraft.target, newSessionDraftOpen, prepareChatDraftDirectory]);
     const consumePendingSyntheticParts = useInputStore((s) => s.consumePendingSyntheticParts);
     const acknowledgeSessionAbort = useSessionUIStore((s) => s.acknowledgeSessionAbort);
-    const abortCurrentOperation = React.useCallback(
-        (sessionIdOverride?: string) => sessionActions.abortCurrentOperation(sessionIdOverride ?? currentSessionId ?? ''),
-        [currentSessionId],
-    );
+    const abortCurrentOperation = useSessionUIStore((s) => s.abortCurrentOperation); // FORK: gated Stop entrypoint
     const currentManagementSessionId = currentSessionId;
     const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
     const [reviewFlowSubmitting, setReviewFlowSubmitting] = React.useState(false);
@@ -2186,7 +2183,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // btw mode: the stop button stops the fork's turn, not the main
         // session's.
         const abortTarget = isBtwActive && btwSessionId ? btwSessionId : currentSessionId;
-        void abortCurrentOperation(abortTarget || undefined);
+        if (abortTarget) void abortCurrentOperation(abortTarget);
     }, [abortCurrentOperation, btwSessionId, clearAbortPrompt, currentSessionId, isBtwActive]);
 
     const handleCycleAgent = React.useCallback((direction: 1 | -1 = 1) => {

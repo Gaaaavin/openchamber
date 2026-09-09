@@ -680,13 +680,13 @@ class OpencodeService {
     return unwrapSdkData(response, 'session.update');
   }
 
-  async getSessionMessages(id: string, limit?: number, directory?: string | null): Promise<{ info: Message; parts: Part[] }[]> {
+  async getSessionMessages(id: string, limit?: number, directory?: string | null, signal?: AbortSignal): Promise<{ info: Message; parts: Part[] }[]> { // FORK: bound revert preparation on dead links
     const requestDirectory = this.normalizeCandidatePath(directory) ?? this.currentDirectory;
     const response = await this.client.session.messages({
       sessionID: id,
       ...(requestDirectory ? { directory: requestDirectory } : {}),
       ...(typeof limit === 'number' ? { limit } : {}),
-    });
+    }, { signal });
     return unwrapSdkData(response, 'session.messages');
   }
 
@@ -1109,14 +1109,14 @@ class OpencodeService {
     return unwrapSdkData(response, 'session.shell') as { info: Message; parts: Part[] };
   }
 
-  async revertSession(sessionId: string, messageId: string, partId?: string, directory?: string | null): Promise<Session> {
+  async revertSession(sessionId: string, messageId: string, partId?: string, directory?: string | null, signal?: AbortSignal): Promise<Session> { // FORK: control-mutation deadline
     const requestDirectory = this.normalizeCandidatePath(directory) ?? this.currentDirectory;
     const response = await this.client.session.revert({
       sessionID: sessionId,
       ...(requestDirectory ? { directory: requestDirectory } : {}),
       messageID: messageId,
       partID: partId,
-    });
+    }, { signal });
     return unwrapSdkData(response, 'session.revert');
   }
 

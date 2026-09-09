@@ -44,6 +44,7 @@ import { mergeMessages } from "./optimistic"
 import { messagesBefore, messagesFrom } from "./message-ordering"
 import { deleteChatDirectory } from "@/lib/chatDirectories"
 import { createChatDraftIdentity } from "@/lib/chatDraftPersistence"
+import { createControlMutationSignal } from "./fork/revert-gate" // FORK
 
 const MESSAGE_REFETCH_LIMIT = 100
 const SEND_CONFIRMATION_REFETCH_LIMIT = 30
@@ -492,10 +493,10 @@ export function isSessionBusyNow(sessionId: string): boolean {
   return getSessionLiveActivity(sessionId) === "active"
 }
 
-async function abortDescendantIfBusy(sessionId: string, directory: string): Promise<void> {
+async function abortDescendantIfBusy(sessionId: string, directory: string, signal?: AbortSignal): Promise<void> {
   if (!isSessionBusyNow(sessionId)) return
   try {
-    await sdk().session.abort({ sessionID: sessionId, directory })
+    await sdk().session.abort({ sessionID: sessionId, directory }, { signal })
   } catch {
     // ignore abort errors
   }
@@ -534,23 +535,23 @@ function firstUserMessageAtOrAfter(messages: Message[], cutoff: number): Message
   return target
 }
 
-async function fetchSessionMessages(sessionId: string, directory?: string | null): Promise<Message[]> {
-  const records = await opencodeClient.getSessionMessages(sessionId, undefined, directory)
+async function fetchSessionMessages(sessionId: string, directory?: string | null, signal?: AbortSignal): Promise<Message[]> {
+  const records = await opencodeClient.getSessionMessages(sessionId, undefined, directory, signal)
   return records.map(({ info }) => info)
 }
 
-async function cascadeRevertToDescendants(rootId: string, cutoff: number): Promise<void> {
+async function cascadeRevertToDescendants(rootId: string, cutoff: number, signal?: AbortSignal): Promise<void> {
   for (const { session, directory } of getDescendantSessions(rootId)) {
     try {
       // A running descendant would keep writing messages past the revert
       // boundary, so stop it first for the same reason the parent is aborted.
-      await abortDescendantIfBusy(session.id, directory)
-      const messages = await fetchSessionMessages(session.id, directory)
+      await abortDescendantIfBusy(session.id, directory, signal)
+      const messages = await fetchSessionMessages(session.id, directory, signal)
       // Equal timestamps belong to the reverted side of the boundary. Keeping
       // them would rely on unrelated message IDs to decide chronology.
       const target = firstUserMessageAtOrAfter(messages, cutoff)
       if (!target) continue
-      const reverted = await opencodeClient.revertSession(session.id, target.id, undefined, directory)
+      const reverted = await opencodeClient.revertSession(session.id, target.id, undefined, directory, signal)
       mirrorSessionIntoLiveStores(reverted, directory)
     } catch (error) {
       console.error(`[session-actions] Failed to cascade revert to descendant ${session.id}:`, error)
@@ -558,14 +559,14 @@ async function cascadeRevertToDescendants(rootId: string, cutoff: number): Promi
   }
 }
 
-async function cascadeUnrevertToDescendants(rootId: string): Promise<void> {
+async function cascadeUnrevertToDescendants(rootId: string, signal?: AbortSignal): Promise<void> {
   for (const { session, directory } of getDescendantSessions(rootId)) {
     if (!session.revert) continue
     try {
       // Same reason as the revert cascade: a running descendant keeps writing
       // messages that the unrevert would race against.
-      await abortDescendantIfBusy(session.id, directory)
-      const result = await sdk().session.unrevert({ sessionID: session.id, directory })
+      await abortDescendantIfBusy(session.id, directory, signal)
+      const result = await sdk().session.unrevert({ sessionID: session.id, directory }, { signal })
       mirrorSessionIntoLiveStores(assertSdkData(result, "session.unrevert"), directory)
     } catch (error) {
       console.error(`[session-actions] Failed to cascade unrevert to descendant ${session.id}:`, error)
@@ -1939,7 +1940,7 @@ function materializeConfirmedSendRecords(
 // Abort
 // ---------------------------------------------------------------------------
 
-export async function abortCurrentOperation(sessionId: string): Promise<void> {
+export async function abortCurrentOperation(sessionId: string, signal?: AbortSignal): Promise<void> { // FORK: store gate supplies the deadline
   // The abort must carry the SESSION'S directory, not the active UI directory:
   // OpenCode routes the request to the per-directory instance, and an abort
   // sent to the wrong instance cancels nothing while still returning 200 true
@@ -1947,9 +1948,10 @@ export async function abortCurrentOperation(sessionId: string): Promise<void> {
   // worktree than the UI's current directory could never be aborted).
   const { directory } = dirStoreForSession(sessionId)
   try {
-    await sdk().session.abort({ sessionID: sessionId, directory })
+    await sdk().session.abort({ sessionID: sessionId, directory }, { signal })
   } catch (error) {
     console.error("[session-actions] abort failed", error)
+    if (signal) throw error // FORK: let the gate report and release failed requests
   }
 }
 
@@ -1975,7 +1977,7 @@ export async function respondToPermission(
     requestID: requestId,
     reply: response,
     ...(directory ? { directory } : {}),
-  })
+  }, { signal: createControlMutationSignal() }) // FORK: blocking replies must release on dead links
   if (assertSdkData(result, "permission.reply") !== true) {
     throw new Error("Permission reply failed")
   }
@@ -2095,7 +2097,7 @@ export async function respondToQuestion(
       requestID: requestId,
       answers: normalizedAnswers,
       ...(directory ? { directory } : {}),
-    })
+    }, { signal: createControlMutationSignal() }) // FORK: blocking replies must release on dead links
     if (assertSdkData(result, "question.reply") !== true) {
       throw new Error("Question reply failed")
     }
@@ -2128,7 +2130,7 @@ export async function rejectQuestion(
     const result = await getRequestReplyClient("question", sessionId, requestId).question.reject({
       requestID: requestId,
       ...(directory ? { directory } : {}),
-    })
+    }, { signal: createControlMutationSignal() }) // FORK: blocking replies must release on dead links
     if (assertSdkData(result, "question.reject") !== true) {
       throw new Error("Question rejection failed")
     }
@@ -2229,20 +2231,20 @@ export async function dismissOpenQuestionsForSession(sessionId: string): Promise
  * 4. Call the runtime revert endpoint and merge returned session
  * 5. Set pendingInputText so the reverted message text appears in the input
  */
-export async function revertToMessage(sessionId: string, messageId: string): Promise<void> {
+export async function revertToMessage(sessionId: string, messageId: string, signal?: AbortSignal): Promise<void> { // FORK: revert gate deadline
   const { store, directory } = dirStoreForSession(sessionId)
   const state = store.getState()
 
   const localTarget = state.message[sessionId]?.find((message) => message.id === messageId)
   const targetMessage = localTarget
-    ?? (await fetchSessionMessages(sessionId, directory)).find((message) => message.id === messageId)
+    ?? (await fetchSessionMessages(sessionId, directory, signal)).find((message) => message.id === messageId)
   if (!targetMessage) throw new Error(`Cannot revert session: message ${messageId} was not found`)
 
   // Abort if busy before mutating session state
   const status = state.session_status[sessionId]
   if (status && status.type !== "idle") {
     try {
-      await sdk().session.abort({ sessionID: sessionId, directory })
+      await sdk().session.abort({ sessionID: sessionId, directory }, { signal })
     } catch {
       // ignore abort errors
     }
@@ -2319,8 +2321,8 @@ export async function revertToMessage(sessionId: string, messageId: string): Pro
   try {
     // Descendants go first because OpenCode also restores file snapshots during
     // revert. All sessions share a directory, so the parent's snapshot must win.
-    await cascadeRevertToDescendants(sessionId, targetMessage.time.created)
-    const revertedSession = await opencodeClient.revertSession(sessionId, messageId, undefined, directory)
+    await cascadeRevertToDescendants(sessionId, targetMessage.time.created, signal)
+    const revertedSession = await opencodeClient.revertSession(sessionId, messageId, undefined, directory, signal)
     const current = store.getState()
     const updated = [...current.session]
     const idx = updated.findIndex((s) => s.id === sessionId)
@@ -2391,7 +2393,7 @@ export async function refetchSessionMessages(sessionId: string): Promise<void> {
  * Unrevert — restore all previously reverted messages.
  * Restore all previously reverted messages. Aborts if busy, merges result.
  */
-export async function unrevertSession(sessionId: string): Promise<void> {
+export async function unrevertSession(sessionId: string, signal?: AbortSignal): Promise<void> { // FORK: revert gate deadline
   const { store, directory } = dirStoreForSession(sessionId)
   const state = store.getState()
   const previousMessageCount = state.message[sessionId]?.length ?? 0
@@ -2400,7 +2402,7 @@ export async function unrevertSession(sessionId: string): Promise<void> {
   const status = state.session_status[sessionId]
   if (status && status.type !== "idle") {
     try {
-      await sdk().session.abort({ sessionID: sessionId, directory })
+      await sdk().session.abort({ sessionID: sessionId, directory }, { signal })
     } catch {
       // ignore
     }
@@ -2408,8 +2410,8 @@ export async function unrevertSession(sessionId: string): Promise<void> {
 
   // Descendants go first because unrevert can also restore shared file state.
   // Applying the parent last leaves the working tree at the parent's snapshot.
-  await cascadeUnrevertToDescendants(sessionId)
-  const result = await sdk().session.unrevert({ sessionID: sessionId, directory })
+  await cascadeUnrevertToDescendants(sessionId, signal)
+  const result = await sdk().session.unrevert({ sessionID: sessionId, directory }, { signal })
   const unrevertedSession = assertSdkData(result, "session.unrevert")
   const current = store.getState()
   const sessions = [...current.session]

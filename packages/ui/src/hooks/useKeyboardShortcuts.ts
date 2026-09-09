@@ -4,7 +4,6 @@ import { useSessionUIStore } from '@/sync/session-ui-store';
 import { activateAdjacentSessionTab, activateSessionTabByIndex, closeSessionTabAndActivateNeighbour } from '@/lib/sessionTabs';
 import { navigateSessionHistory } from '@/lib/sessionNavigationHistory';
 import { useSelectionStore } from '@/sync/selection-store';
-import * as sessionActions from '@/sync/session-actions';
 import { normalizeContextPanelDirectoryKey, useUIStore } from '@/stores/useUIStore';
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import { useCurrentSessionActivity } from '@/hooks/useSessionActivity';
@@ -313,7 +312,7 @@ export const useKeyboardShortcuts = () => {
     },
     abort_run: () => {
       if (sessionPhase === 'idle' || !currentSessionId) return false;
-      void sessionActions.abortCurrentOperation(currentSessionId);
+      void useSessionUIStore.getState().abortCurrentOperation(currentSessionId); // FORK: share Stop dedup/deadline
     },
   });
 

@@ -192,7 +192,7 @@ export function ComposerFooter(props: ComposerFooterProps) {
                                     canSend={canSend}
                                     canAbort={canAbort}
                                     hasContent={hasContent}
-                                    currentSessionId={currentSessionId}
+                                    currentSessionId={isBtw ? modelSessionId ?? null : currentSessionId} // FORK: pending state follows the stopped session
                                     newSessionDraftOpen={newSessionDraftOpen}
                                     onPrimaryAction={onPrimaryAction}
                                     onQueueMessage={onQueueMessage}
@@ -261,7 +261,7 @@ export function ComposerFooter(props: ComposerFooterProps) {
                             canSend={canSend}
                             canAbort={canAbort}
                             hasContent={hasContent}
-                            currentSessionId={currentSessionId}
+                            currentSessionId={isBtw ? modelSessionId ?? null : currentSessionId} // FORK: pending state follows the stopped session
                             newSessionDraftOpen={newSessionDraftOpen}
                             onPrimaryAction={onPrimaryAction}
                             onQueueMessage={onQueueMessage}

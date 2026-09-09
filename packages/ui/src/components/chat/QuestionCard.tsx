@@ -16,6 +16,7 @@ import { useI18n } from '@/lib/i18n';
 import { serializeQuestionAsJson, serializeQuestionAsMarkdown } from './questionSerializers';
 import { QUESTION_CUSTOM_TEXTAREA_MIN_HEIGHT, getQuestionCustomTextareaHeight } from './questionTextareaSizing';
 import { QuestionMarkdown } from './QuestionMarkdown';
+import { isControlMutationDeadlineError } from '@/sync/fork/revert-gate'; // FORK
 
 interface QuestionCardProps {
   question: QuestionRequest;
@@ -254,6 +255,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
       if (sessionActions.isQuestionRequestNotFoundError(error)) {
         toast.info(t('chat.questionCard.noLongerPending'));
         setHasResponded(true);
+      } else if (error instanceof Error && isControlMutationDeadlineError(error)) {
+        toast.warning(t('fork.reply.timeout.title'), { description: t('fork.reply.timeout.description') }); // FORK
       } else {
         toast.error(t('chat.questionCard.submitFailed'), {
           description: t('chat.questionCard.tryAgain'),
@@ -289,6 +292,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({ question }) => {
       if (sessionActions.isQuestionRequestNotFoundError(error)) {
         toast.info(t('chat.questionCard.noLongerPending'));
         setHasResponded(true);
+      } else if (error instanceof Error && isControlMutationDeadlineError(error)) {
+        toast.warning(t('fork.reply.timeout.title'), { description: t('fork.reply.timeout.description') }); // FORK
       } else {
         toast.error(t('chat.questionCard.dismissFailed'), {
           description: t('chat.questionCard.tryAgain'),

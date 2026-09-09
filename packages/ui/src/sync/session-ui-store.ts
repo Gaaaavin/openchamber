@@ -66,6 +66,7 @@ import {
   shareSession as shareSessionAction,
   unshareSession as unshareSessionAction,
   optimisticSend,
+  abortCurrentOperation as abortCurrentOperationAction,
   refetchSessionMessages,
   revertToMessage as revertToMessageAction,
   unrevertSession as unrevertSessionAction,
@@ -85,7 +86,8 @@ import { useSelectionStore } from "./selection-store"
 import { getViewportSessionMemory, useViewportStore, viewportSessionKey } from "./viewport-store"
 import { useSessionWorktreeStore } from "./session-worktree-store"
 import { getAttachedSessionDirectory } from "./session-worktree-contract"
-import { gatedRevert } from "./fork/revert-gate" // FORK
+import { gatedRevert, runGated, waitForPending } from "./fork/revert-gate" // FORK
+import { showControlMutationWarning } from "./fork/control-mutation-toast" // FORK
 import { setSessionOpener } from "./session-navigation"
 import { getRuntimeKey } from "@/lib/runtime-switch"
 import { clearLastActiveSession, persistLastActiveSession, readLastActiveSession } from "./last-session-cache"
@@ -431,6 +433,7 @@ export type SessionUIState = {
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   shareSession: (sessionId: string) => Promise<Session | null>
   unshareSession: (sessionId: string) => Promise<Session | null>
+  abortCurrentOperation: (sessionId: string) => Promise<void> // FORK
   revertToMessage: (sessionId: string, messageId: string, options?: { skipRedoPush?: boolean }) => Promise<void>
   forkFromMessage: (sessionId: string, messageId: string) => Promise<void>
   handleSlashUndo: (sessionId: string) => Promise<void>
@@ -457,11 +460,11 @@ export type SessionUIState = {
 // Helpers
 // FORK: Revert entrypoints below are wrapped in `gatedRevert`; they call this
 // ungated body so a pending run never re-enters the gate.
-const revertToMessageUngated = async (sessionId: string, messageId: string): Promise<void> => {
+const revertToMessageUngated = async (sessionId: string, messageId: string, signal: AbortSignal): Promise<void> => { // FORK
   // Ensure the complete message range is present before applying the revert
   // marker. Reverted UI is derived from session.revert + stored messages.
   await refetchSessionMessages(sessionId)
-  await revertToMessageAction(sessionId, messageId)
+  await revertToMessageAction(sessionId, messageId, signal)
 }
 // ---------------------------------------------------------------------------
 
@@ -1652,6 +1655,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
 
     // Clear non-Git changed-files bar on new user message for current session
     const sid = capturedTarget?.sessionId ?? options?.sessionId ?? get().currentSessionId;
+    if (sid) await waitForPending(sid, ["revert", "unrevert"]) // FORK: order sends after optimistic revert state settles
     if (sid) {
       const map = new Map(get().pendingChangesBarDismissed);
       map.delete(sid);
@@ -1949,6 +1953,17 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
     return unshareSessionAction(sessionId)
   },
 
+  abortCurrentOperation: async (sessionId) => { // FORK: dedupe Stop and bound it on dead links
+    if (!sessionId) return
+    await runGated(sessionId, { kind: "abort" }, async (signal) => {
+      try {
+        await abortCurrentOperationAction(sessionId, signal)
+      } catch {
+        showControlMutationWarning("abort")
+      }
+    })
+  },
+
   // ---------------------------------------------------------------------------
   // revertToMessage — delegates to session-actions (single implementation)
   // ---------------------------------------------------------------------------
@@ -1957,7 +1972,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
   // ---------------------------------------------------------------------------
   // handleSlashUndo — reads from sync, records history for redo
   // ---------------------------------------------------------------------------
-  handleSlashUndo: gatedRevert(() => ({ kind: "revert" }), async (sessionId) => { // FORK
+  handleSlashUndo: gatedRevert(() => ({ kind: "revert" }), async (sessionId, signal) => { // FORK
     const messages = getSyncMessages(sessionId)
     const sessions = getSyncSessions()
     const currentSession = sessions.find((s) => s.id === sessionId)
@@ -1986,7 +2001,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       : "[No text]"
 
     // revertToMessage handles the redo stack push internally
-    await revertToMessageUngated(sessionId, targetMessage.id) // FORK: already inside the gate
+    await revertToMessageUngated(sessionId, targetMessage.id, signal) // FORK: already inside the gate
 
     const { toast } = await import("sonner")
     const { useI18nStore, formatMessage } = await import("@/lib/i18n/store")
@@ -1997,10 +2012,10 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
   // ---------------------------------------------------------------------------
   // handleSlashRedo — moves the authoritative revert marker forward
   // ---------------------------------------------------------------------------
-  handleSlashRedo: gatedRevert(() => ({ kind: "unrevert" }), async (sessionId, options?: { fullUnrevert?: boolean }) => { // FORK
+  handleSlashRedo: gatedRevert<[options?: { fullUnrevert?: boolean }]>(() => ({ kind: "unrevert" }), async (sessionId, options, signal) => { // FORK
     if (options?.fullUnrevert) {
       const { unrevertSession } = await import("./session-actions")
-      await unrevertSession(sessionId)
+      await unrevertSession(sessionId, signal)
       const { toast } = await import("sonner")
       const { useI18nStore, formatMessage } = await import("@/lib/i18n/store")
       const { dictionary } = useI18nStore.getState()
@@ -2020,7 +2035,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
     const targetMessage = revertIndex >= 0 ? userMessages[revertIndex + 1] : undefined
 
     if (targetMessage) {
-      await revertToMessageUngated(sessionId, targetMessage.id) // FORK: already inside the gate
+      await revertToMessageUngated(sessionId, targetMessage.id, signal) // FORK: already inside the gate
       const { toast } = await import("sonner")
       const { useI18nStore, formatMessage } = await import("@/lib/i18n/store")
       const { dictionary } = useI18nStore.getState()
@@ -2028,7 +2043,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       return
     }
 
-    await unrevertSessionAction(sessionId)
+    await unrevertSessionAction(sessionId, signal)
     const { toast } = await import("sonner")
     const { useI18nStore, formatMessage } = await import("@/lib/i18n/store")
     const { dictionary } = useI18nStore.getState()
