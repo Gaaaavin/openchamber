@@ -59,6 +59,17 @@ test('zoom works without App menu listeners and routes by focused content', asyn
     await act(async () => zoom('zoom-reset'));
     expect(useUIStore.getState().fontSize).toBe(100);
     expect(document.documentElement.style.fontSize).toBe('');
+    const composer = document.createElement('div');
+    composer.dataset.chatInput = 'true';
+    composer.className = 'cm-editor';
+    const composerInput = document.createElement('textarea');
+    composer.append(composerInput);
+    container.append(composer);
+    composerInput.focus();
+    await act(async () => zoom('zoom-in'));
+    expect(useUIStore.getState().fontSize).toBe(110);
+    expect(useUIStore.getState().editorFontSize).toBe(12);
+    await act(async () => zoom('zoom-reset'));
     await act(async () => root.unmount());
     zoom('zoom-in');
     expect(useUIStore.getState().fontSize).toBe(100);
