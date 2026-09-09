@@ -27,6 +27,7 @@ import { flattenAssistantTextParts, suggestPlanTitleFromText } from '@/lib/messa
 import { MULTIRUN_EXECUTION_FORK_PROMPT_META_TEXT } from '@/lib/messages/executionMeta';
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { MobileOverlayPanel } from '@/components/ui/MobileOverlayPanel';
+import { useFactsFit } from './useFactsFit';
 import { useConfigStore } from '@/stores/useConfigStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { TextSelectionMenu } from './TextSelectionMenu';
@@ -2172,6 +2173,8 @@ const AssistantMessageBody = React.memo(({
     // pointer path; these rows call the same handlers, minus the transient
     // copied/sharing states that only make sense on a button that stays put.
     const [actionSheetOpen, setActionSheetOpen] = React.useState(false);
+    const footerFactsRef = React.useRef<HTMLDivElement>(null);
+    useFactsFit(footerFactsRef);
     const { isPlaying: isFooterTTSPlaying, play: playFooterTTS, stop: stopFooterTTS } = useMessageTTS();
     const showMessageTTSButtons = useConfigStore((state) => state.showMessageTTSButtons);
     const canOpenMessagePreview = !isMiniChatSurface && !isMobile && !isVSCode;
@@ -2441,65 +2444,58 @@ const AssistantMessageBody = React.memo(({
                             narrows: first the time, then the agent, then the thinking
                             effort. Model and duration never leave — the model only
                             truncates once those two alone stop fitting. */}
-                        <div className="message-footer__facts flex-1 whitespace-nowrap text-sm text-muted-foreground/60">
-                            <span className="message-footer__facts-core">
-                                {footerModelName ? (
-                                    <span className="flex min-w-0 items-center gap-1.5">
-                                        {footerHasLogo && footerLogoSrc ? (
-                                            <img
-                                                src={footerLogoSrc}
-                                                alt=""
-                                                className="h-3.5 w-3.5 flex-shrink-0"
-                                                style={{
-                                                    filter: isDarkTheme ? 'brightness(0.9) contrast(1.1) invert(1)' : 'brightness(0.9) contrast(1.1)',
-                                                }}
-                                                onError={handleFooterLogoError}
-                                            />
-                                        ) : (
-                                            <Icon
-                                                name="brain-ai-3"
-                                                className="h-3.5 w-3.5 flex-shrink-0"
-                                                style={{ color: `var(${getAgentColor(footerAgentName).var})` }}
-                                            />
-                                        )}
-                                        <span className="truncate">{footerModelName}</span>
-                                    </span>
-                                ) : null}
-                            </span>
-                            {/* Thinking effort and agent drop out from the tail — the
-                                agent first — when the row runs short. */}
-                            <span className="message-footer__facts-optional">
-                                {footerVariant && !['default', 'none'].includes(footerVariant.toLowerCase()) ? (
-                                    <span className="message-footer__fact">
-                                        <span className="opacity-60" aria-hidden>·</span>
-                                        {footerVariant[0].toLowerCase() + footerVariant.slice(1)}
-                                    </span>
-                                ) : null}
-                                {footerAgentName ? (
-                                    <span className="message-footer__fact">
-                                        <span className="opacity-60" aria-hidden>·</span>
-                                        {footerAgentName}
-                                    </span>
-                                ) : null}
-                            </span>
+                        <div ref={footerFactsRef} className="message-footer__facts whitespace-nowrap text-sm text-muted-foreground/60">
+                            {footerModelName ? (
+                                <span className="flex min-w-0 shrink items-center gap-1.5">
+                                    {footerHasLogo && footerLogoSrc ? (
+                                        <img
+                                            src={footerLogoSrc}
+                                            alt=""
+                                            className="h-3.5 w-3.5 flex-shrink-0"
+                                            style={{
+                                                filter: isDarkTheme ? 'brightness(0.9) contrast(1.1) invert(1)' : 'brightness(0.9) contrast(1.1)',
+                                            }}
+                                            onError={handleFooterLogoError}
+                                        />
+                                    ) : (
+                                        <Icon
+                                            name="brain-ai-3"
+                                            className="h-3.5 w-3.5 flex-shrink-0"
+                                            style={{ color: `var(${getAgentColor(footerAgentName).var})` }}
+                                        />
+                                    )}
+                                    <span data-fact-model className="truncate">{footerModelName}</span>
+                                </span>
+                            ) : null}
+                            {footerVariant && !['default', 'none'].includes(footerVariant.toLowerCase()) ? (
+                                <span data-fact-priority="3" className="message-footer__fact">
+                                    <span className="opacity-60" aria-hidden>·</span>
+                                    {footerVariant[0].toLowerCase() + footerVariant.slice(1)}
+                                </span>
+                            ) : null}
+                            {footerAgentName ? (
+                                <span data-fact-priority="2" className="message-footer__fact">
+                                    <span className="opacity-60" aria-hidden>·</span>
+                                    {footerAgentName}
+                                </span>
+                            ) : null}
                             {turnDurationText ? (
-                                <span className="message-footer__facts-duration message-footer__fact tabular-nums">
+                                <span className="message-footer__fact tabular-nums">
                                     {footerModelName ? <span className="opacity-60" aria-hidden>·</span> : null}
                                     {turnDurationText}
                                 </span>
                             ) : null}
-                            {/* Pointer surfaces keep the timestamp inline (it goes first
-                                when space runs out); touch reads it in the actions
-                                sheet, where nothing can push it off the row. */}
+                            {/* Pointer surfaces keep the timestamp inline (it is the first
+                                fact the row gives up); touch reads it in the actions sheet,
+                                where nothing can push it off the row. */}
                             {footerTimestamp && !(alwaysShowMessageActions || isTouchContext) ? (
-                                <span className="message-footer__facts-optional message-footer__facts-optional--drops-first">
-                                    <span
-                                        className={cn(footerTimestampClassName, 'message-footer__fact')}
-                                        aria-label={`Message time: ${footerTimestamp}`}
-                                    >
-                                        <span className="opacity-60" aria-hidden>·</span>
-                                        {footerTimestamp}
-                                    </span>
+                                <span
+                                    data-fact-priority="1"
+                                    className={cn(footerTimestampClassName, 'message-footer__fact')}
+                                    aria-label={`Message time: ${footerTimestamp}`}
+                                >
+                                    <span className="opacity-60" aria-hidden>·</span>
+                                    {footerTimestamp}
                                 </span>
                             ) : null}
                         </div>
