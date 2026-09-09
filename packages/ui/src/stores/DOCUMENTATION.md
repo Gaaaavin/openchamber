@@ -243,6 +243,8 @@ Important properties:
 - branch persistence is versioned, bounded, runtime-scoped, and claims the ambiguous legacy cache once
 - diff data has per-directory and aggregate count/UTF-8-byte limits; oversized single entries are rejected
 
+Diff prefetch admits at most two outstanding transport requests per runtime and directory across overlapping batches. Its 15-second deadline stops waiting for a result; it does not cancel server work. A timed-out request retains its path and concurrency slot until the transport settles, including across cache resets, so later batches cannot repeat it or exceed the limit. Saturated prefetch skips further work instead of queueing retries. Late timed-out results never enter the cache, and successful or rejected transport completion releases capacity. Duplicate or saturated demand does not invalidate a batch already running. The Git view schedules prefetch only while active; explicit file opens remain independent of background prefetch capacity.
+
 ### `useGitHubPrStatusStore.ts`
 
 `useGitHubPrStatusStore` is a centralized PR cache keyed by a collision-safe tuple of runtime, directory, branch, and requested remote.
