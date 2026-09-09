@@ -2,6 +2,8 @@ import React from "react";
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { WorkingPlaceholder } from "./message/parts/WorkingPlaceholder";
 import { LiveTps } from './fork/LiveTps'; // FORK: live TPS, see FORK.md patch 2
+import { useMutationPending } from '@/sync/fork/revert-gate'; // FORK
+import { useI18n } from '@/lib/i18n';
 
 // The floating assistant-status chip that hovers above the composer while the
 // agent works ("Claude is working…"). ONLY that. The composer's
@@ -35,6 +37,8 @@ export const StatusRow: React.FC<StatusRowProps> = ({
   providerId,
 }) => {
   const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
+  const abortPending = useMutationPending(currentSessionId ?? undefined, 'abort'); // FORK
+  const { t } = useI18n();
 
   const shouldRenderPlaceholder = !abortActive;
   const hasContent = isWorking;
@@ -61,7 +65,7 @@ export const StatusRow: React.FC<StatusRowProps> = ({
             <WorkingPlaceholder
               key={currentSessionId ?? "no-session"}
               isWorking={isWorking}
-              statusText={statusText}
+              statusText={abortPending ? t('fork.abort.pending') : statusText} // FORK
               isGenericStatus={isGenericStatus}
               isWaitingForPermission={isWaitingForPermission}
               retryInfo={retryInfo}

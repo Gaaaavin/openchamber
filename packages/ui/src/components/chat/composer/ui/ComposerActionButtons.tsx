@@ -12,6 +12,7 @@ import { Icon } from '@/components/icon/Icon';
 import { StopIcon } from '@/components/icons/StopIcon';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { useMutationPending, useRevertPending } from '@/sync/fork/revert-gate'; // FORK
 
 type ComposerActionButtonsProps = {
     isMobile: boolean;
@@ -44,11 +45,13 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
         onAbort,
     } = props;
     const { t } = useI18n();
+    const abortPending = useMutationPending(currentSessionId ?? undefined, 'abort'); // FORK
+    const revertPending = useRevertPending(currentSessionId ?? undefined); // FORK
 
     const sendButton = (
         <button
             type={isMobile ? 'button' : 'submit'}
-            disabled={!canSend || (!currentSessionId && !newSessionDraftOpen)}
+            disabled={!canSend || Boolean(revertPending) || (!currentSessionId && !newSessionDraftOpen)}
             onClick={(event) => {
                 if (!isMobile) {
                     return;
@@ -59,7 +62,7 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
             }}
             className={cn(
                 footerIconButtonClass,
-                canSend && (currentSessionId || newSessionDraftOpen)
+                canSend && !revertPending && (currentSessionId || newSessionDraftOpen)
                     ? 'text-primary hover:text-primary'
                     : 'opacity-30'
             )}
@@ -97,14 +100,17 @@ export const ComposerActionButtons = React.memo(function ComposerActionButtons(p
             ) : null}
             <button
                 type="button"
+                disabled={Boolean(abortPending)}
                 onClick={onAbort}
                 className={cn(
                     footerIconButtonClass,
                     'text-[var(--status-error)] hover:text-[var(--status-error)]'
                 )}
-                aria-label={t('chat.chatInput.actions.stopGeneratingAria')}
+                aria-label={abortPending ? t('fork.abort.pending') : t('chat.chatInput.actions.stopGeneratingAria')}
             >
-                <StopIcon className={cn(stopIconSizeClass)} />
+                {abortPending
+                    ? <Icon name="loader-4" className={cn(stopIconSizeClass, 'animate-spin')} />
+                    : <StopIcon className={cn(stopIconSizeClass)} />}
             </button>
         </div>
     );

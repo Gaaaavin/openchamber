@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import type { Session } from "@opencode-ai/sdk/v2/client"
-import { keepPendingRevert, revertGateStore, runRevertGated } from "./revert-gate"
+import {
+  keepPendingRevert,
+  revertGateStore,
+  runGated,
+  runRevertGated,
+  waitForPending,
+} from "./revert-gate"
 
 const session = (id: string, revert?: Session["revert"]): Session => {
   const value: Session = {
@@ -25,7 +31,7 @@ const deferred = () => {
 }
 
 describe("revert gate", () => {
-  test("skips a second call while the session is pending", async () => {
+  test("skips a duplicate kind while the session is pending", async () => {
     const wait = deferred()
     let calls = 0
     const first = runRevertGated("session-a", { kind: "revert" }, async () => {
@@ -33,7 +39,7 @@ describe("revert gate", () => {
       await wait.promise
     })
 
-    const second = await runRevertGated("session-a", { kind: "unrevert" }, async () => {
+    const second = await runRevertGated("session-a", { kind: "revert" }, async () => {
       calls += 1
     })
 
@@ -64,6 +70,58 @@ describe("revert gate", () => {
     expect(second).toEqual({ status: "ran", value: "done" })
     wait.resolve()
     await first
+  })
+
+  test("allows different mutation kinds on the same session", async () => {
+    const wait = deferred()
+    const revert = runRevertGated("session-kinds", { kind: "revert" }, async () => wait.promise)
+    const abort = await runGated("session-kinds", { kind: "abort" }, async () => "stopped")
+
+    expect(abort).toEqual({ status: "ran", value: "stopped" })
+    wait.resolve()
+    await revert
+  })
+
+  test("passes a signal that aborts at the deadline", async () => {
+    let received: AbortSignal | undefined
+    await expect(runGated("session-deadline", { kind: "abort" }, async (signal) => {
+      received = signal
+      await new Promise<void>((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true })
+      })
+    }, 10)).rejects.toThrow()
+
+    expect(received?.aborted).toBe(true)
+    expect(revertGateStore.getState().pending["session-deadline"]).toBeUndefined()
+  })
+
+  test("waits until matching pending work releases", async () => {
+    const wait = deferred()
+    const pending = runGated("session-wait", { kind: "abort" }, async () => wait.promise)
+    let released = false
+    const release = waitForPending("session-wait", "abort").then(() => {
+      released = true
+    })
+
+    await Promise.resolve()
+    expect(released).toBe(false)
+    wait.resolve()
+    await pending
+    await release
+    expect(released).toBe(true)
+  })
+
+  test("waits until rejected pending work releases", async () => {
+    const wait = deferred()
+    const pending = runGated("session-rejected-wait", { kind: "revert" }, async () => {
+      await wait.promise
+      throw new Error("failed")
+    })
+    const release = waitForPending("session-rejected-wait", ["revert", "unrevert"])
+
+    wait.resolve()
+    await expect(pending).rejects.toThrow("failed")
+    await release
   })
 
   test("returns the incoming identity when no request is pending", () => {
@@ -104,7 +162,17 @@ describe("revert gate", () => {
       async () => wait.promise,
     )
 
-    expect(revertGateStore.getState().pending["session-entry"]?.messageId).toBe("message-target")
+    expect(revertGateStore.getState().pending["session-entry"]?.revert?.messageId).toBe("message-target")
+    wait.resolve()
+    await pending
+  })
+
+  test("keepPendingRevert ignores abort-only pending work", async () => {
+    const wait = deferred()
+    const pending = runGated("session-abort-only", { kind: "abort" }, async () => wait.promise)
+    const incoming = session("session-abort-only", { messageID: "incoming" })
+
+    expect(keepPendingRevert(session("session-abort-only", { messageID: "local" }), incoming)).toBe(incoming)
     wait.resolve()
     await pending
   })

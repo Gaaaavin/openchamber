@@ -11,6 +11,8 @@ import { DiffPreview, WritePreview } from './DiffPreview';
 import { useI18n } from '@/lib/i18n';
 import { getVisiblePermissionPatterns } from './permissionCardPatterns';
 import { formatShortcutForDisplay } from '@/lib/shortcuts';
+import { toast } from '@/components/ui';
+import { isControlMutationDeadlineError } from '@/sync/fork/revert-gate'; // FORK
 
 // Newest pending card owns the keyboard; older cards wait their turn.
 const activePermissionCardIds: string[] = [];
@@ -125,6 +127,9 @@ export const PermissionCard: React.FC<PermissionCardProps> = ({
       onResponse?.(response);
     } catch (error) {
       console.error('[PermissionCard] Failed to respond to permission:', error);
+      if (error instanceof Error && isControlMutationDeadlineError(error)) {
+        toast.warning(t('fork.reply.timeout.title'), { description: t('fork.reply.timeout.description') }); // FORK
+      }
     } finally {
       setIsResponding(false);
     }
