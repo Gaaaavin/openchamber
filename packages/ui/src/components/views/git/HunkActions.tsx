@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -27,7 +28,6 @@ interface HunkActionsProps {
 }
 
 interface HunkSummary {
-  patch: string;
   insertions: number;
   deletions: number;
 }
@@ -41,8 +41,28 @@ const summarizeHunks = (patch: string): HunkSummary[] =>
       if (line.startsWith('+')) insertions += 1;
       else if (line.startsWith('-')) deletions += 1;
     }
-    return { patch: hunkPatch, insertions, deletions };
+    return { insertions, deletions };
   });
+
+const HunkCounts = React.memo<{ insertions: number; deletions: number }>(function HunkCounts({
+  insertions,
+  deletions,
+}) {
+  if (insertions === 0 && deletions === 0) return null;
+  return (
+    <span className="ml-auto pl-3 typography-micro">
+      {insertions > 0 ? (
+        <span style={{ color: 'var(--status-success)' }}>+{insertions}</span>
+      ) : null}
+      {insertions > 0 && deletions > 0 ? (
+        <span className="mx-0.5 text-muted-foreground">/</span>
+      ) : null}
+      {deletions > 0 ? (
+        <span style={{ color: 'var(--status-error)' }}>-{deletions}</span>
+      ) : null}
+    </span>
+  );
+});
 
 export const HunkActions = React.memo<HunkActionsProps>(function HunkActions({
   filePath,
@@ -84,51 +104,31 @@ export const HunkActions = React.memo<HunkActionsProps>(function HunkActions({
           const displayIndex = index + 1;
           const busyPrimary = busyHunk?.index === index && busyHunk.action === primaryAction;
           const busyDiscard = busyHunk?.index === index && busyHunk.action === 'discard';
-          const rowBusy = busyPrimary || busyDiscard;
           const primaryTitle = staged
             ? t('diffView.hunk.unstageTitle', { index: displayIndex })
             : t('diffView.hunk.stageTitle', { index: displayIndex });
           const discardTitle = t('diffView.hunk.discardTitle', { index: displayIndex });
           return (
-            <div
-              key={index}
-              className="flex items-center gap-2 px-2 py-1.5"
-              aria-label={primaryTitle}
-            >
-              <span className="min-w-0 flex-1 truncate typography-ui-label text-foreground">
-                Hunk {displayIndex}
-                <span className="ml-1.5 typography-micro">
-                  {hunk.insertions > 0 ? (
-                    <span style={{ color: 'var(--status-success)' }}>+{hunk.insertions}</span>
-                  ) : null}
-                  {hunk.insertions > 0 && hunk.deletions > 0 ? (
-                    <span className="mx-0.5 text-muted-foreground">/</span>
-                  ) : null}
-                  {hunk.deletions > 0 ? (
-                    <span style={{ color: 'var(--status-error)' }}>-{hunk.deletions}</span>
-                  ) : null}
-                </span>
-              </span>
-              <button
-                type="button"
-                disabled={disabled || rowBusy}
-                onClick={() => onAction(index, primaryAction)}
-                className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+            <React.Fragment key={index}>
+              {index > 0 ? <DropdownMenuSeparator /> : null}
+              <DropdownMenuItem
+                disabled={disabled || busyDiscard}
+                onSelect={() => onAction(index, primaryAction)}
                 aria-label={primaryTitle}
                 title={primaryTitle}
               >
                 {busyPrimary ? (
                   <Icon name="loader-4" className="size-3.5 animate-spin" />
                 ) : (
-                  <Icon name="add" className="size-3.5" />
+                  <Icon name={staged ? 'arrow-go-back' : 'add'} className="size-3.5" />
                 )}
-              </button>
+                <span className="min-w-0 flex-1 truncate">{primaryTitle}</span>
+                <HunkCounts insertions={hunk.insertions} deletions={hunk.deletions} />
+              </DropdownMenuItem>
               {!staged ? (
-                <button
-                  type="button"
-                  disabled={disabled || rowBusy}
-                  onClick={() => onAction(index, 'discard')}
-                  className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                <DropdownMenuItem
+                  disabled={disabled || busyPrimary}
+                  onSelect={() => onAction(index, 'discard')}
                   aria-label={discardTitle}
                   title={discardTitle}
                 >
@@ -137,9 +137,10 @@ export const HunkActions = React.memo<HunkActionsProps>(function HunkActions({
                   ) : (
                     <Icon name="arrow-go-back" className="size-3.5" />
                   )}
-                </button>
+                  <span className="min-w-0 flex-1 truncate">{discardTitle}</span>
+                </DropdownMenuItem>
               ) : null}
-            </div>
+            </React.Fragment>
           );
         })}
       </DropdownMenuContent>

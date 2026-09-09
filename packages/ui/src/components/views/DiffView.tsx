@@ -1005,7 +1005,7 @@ const MultiFileDiffEntry = React.memo<MultiFileDiffEntryProps>(({
                                             filePath={file.path}
                                             staged={staged}
                                             busyAction={fileAction}
-                                            disabled={fileAction !== null}
+                                            disabled={fileAction !== null || hunkAction !== null}
                                             onAction={handleFileAction}
                                         />
                                     ) : null}
