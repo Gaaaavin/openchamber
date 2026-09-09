@@ -243,7 +243,7 @@ export const SessionErrorNotice: React.FC<SessionErrorNoticeProps> = ({ sessionI
     );
   }
   if (lastMessage?.role !== 'user') return null;
-  if (!connected) return <MutedNotice>{t('fork.replyNotice.reconnecting')}</MutedNotice>;
+  if (!connected) return <MutedNotice>{t('fork.replyNotice.waitingForConnection')}</MutedNotice>;
   if (locallyActive || elapsed < WAITING_AFTER_MS) return null;
   const warningConfirmed = checkState.phase === 'confirmed-idle'
     || (checkState.phase === 'checking' && checkState.keepWarning);

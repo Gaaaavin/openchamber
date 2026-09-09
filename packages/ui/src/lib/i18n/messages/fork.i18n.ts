@@ -1,7 +1,9 @@
 /** Personal-fork UI strings, merged into each locale's main dictionary. */
 export const forkI18n = {
   en: {
-    'fork.replyNotice.reconnecting': 'Reconnecting to OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Your message is waiting for the connection.',
+    'fork.connection.reconnecting': 'Connection lost · reconnecting… {seconds}s',
+    'fork.connection.reconnected': 'Reconnected',
     'fork.replyNotice.waiting': 'Waiting for OpenCode to start a reply…',
     'fork.replyNotice.noReplyTitle': 'No reply yet',
     'fork.replyNotice.noReplyBody': 'OpenCode has not started a reply in {seconds} seconds and reported no error.',
@@ -28,7 +30,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Open log',
   },
   de: {
-    'fork.replyNotice.reconnecting': 'Verbindung zu OpenCode wird wiederhergestellt…',
+    'fork.replyNotice.waitingForConnection': 'Ihre Nachricht wartet auf die Verbindung.',
+    'fork.connection.reconnecting': 'Verbindung unterbrochen · Wiederverbindung… {seconds} s',
+    'fork.connection.reconnected': 'Wieder verbunden',
     'fork.replyNotice.waiting': 'Warte darauf, dass OpenCode eine Antwort beginnt…',
     'fork.replyNotice.noReplyTitle': 'Noch keine Antwort',
     'fork.replyNotice.noReplyBody': 'OpenCode hat innerhalb von {seconds} Sekunden keine Antwort begonnen und keinen Fehler gemeldet.',
@@ -55,7 +59,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Protokoll öffnen',
   },
   es: {
-    'fork.replyNotice.reconnecting': 'Reconectando con OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Tu mensaje está esperando la conexión.',
+    'fork.connection.reconnecting': 'Conexión perdida · reconectando… {seconds} s',
+    'fork.connection.reconnected': 'Conexión restablecida',
     'fork.replyNotice.waiting': 'Esperando a que OpenCode empiece a responder…',
     'fork.replyNotice.noReplyTitle': 'Aún no hay respuesta',
     'fork.replyNotice.noReplyBody': 'OpenCode no ha empezado a responder en {seconds} segundos ni ha informado de ningún error.',
@@ -82,7 +88,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Abrir registro',
   },
   fr: {
-    'fork.replyNotice.reconnecting': 'Reconnexion à OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Votre message attend le rétablissement de la connexion.',
+    'fork.connection.reconnecting': 'Connexion perdue · reconnexion… {seconds} s',
+    'fork.connection.reconnected': 'Reconnecté',
     'fork.replyNotice.waiting': 'En attente du début de la réponse d’OpenCode…',
     'fork.replyNotice.noReplyTitle': 'Toujours aucune réponse',
     'fork.replyNotice.noReplyBody': 'OpenCode n’a pas commencé à répondre depuis {seconds} secondes et n’a signalé aucune erreur.',
@@ -109,7 +117,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Ouvrir le journal',
   },
   ja: {
-    'fork.replyNotice.reconnecting': 'OpenCode に再接続中…',
+    'fork.replyNotice.waitingForConnection': 'メッセージは接続の回復を待っています。',
+    'fork.connection.reconnecting': '接続が切れました · 再接続中… {seconds}秒',
+    'fork.connection.reconnected': '再接続しました',
     'fork.replyNotice.waiting': 'OpenCode が返信を開始するのを待っています…',
     'fork.replyNotice.noReplyTitle': 'まだ返信がありません',
     'fork.replyNotice.noReplyBody': 'OpenCode は {seconds} 秒以内に返信を開始せず、エラーも報告しませんでした。',
@@ -136,7 +146,9 @@ export const forkI18n = {
     'fork.update.openLog': 'ログを開く',
   },
   ko: {
-    'fork.replyNotice.reconnecting': 'OpenCode에 다시 연결하는 중…',
+    'fork.replyNotice.waitingForConnection': '메시지가 연결을 기다리고 있습니다.',
+    'fork.connection.reconnecting': '연결 끊김 · 다시 연결하는 중… {seconds}초',
+    'fork.connection.reconnected': '다시 연결됨',
     'fork.replyNotice.waiting': 'OpenCode가 답변을 시작하기를 기다리는 중…',
     'fork.replyNotice.noReplyTitle': '아직 답변이 없습니다',
     'fork.replyNotice.noReplyBody': 'OpenCode가 {seconds}초 동안 답변을 시작하지 않았으며 오류도 보고하지 않았습니다.',
@@ -163,7 +175,9 @@ export const forkI18n = {
     'fork.update.openLog': '로그 열기',
   },
   pl: {
-    'fork.replyNotice.reconnecting': 'Ponowne łączenie z OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Wiadomość czeka na połączenie.',
+    'fork.connection.reconnecting': 'Utracono połączenie · ponowne łączenie… {seconds} s',
+    'fork.connection.reconnected': 'Połączono ponownie',
     'fork.replyNotice.waiting': 'Oczekiwanie, aż OpenCode rozpocznie odpowiedź…',
     'fork.replyNotice.noReplyTitle': 'Wciąż brak odpowiedzi',
     'fork.replyNotice.noReplyBody': 'OpenCode nie rozpoczął odpowiedzi w ciągu {seconds} sekund i nie zgłosił błędu.',
@@ -190,7 +204,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Otwórz dziennik',
   },
   'pt-BR': {
-    'fork.replyNotice.reconnecting': 'Reconectando ao OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Sua mensagem está aguardando a conexão.',
+    'fork.connection.reconnecting': 'Conexão perdida · reconectando… {seconds}s',
+    'fork.connection.reconnected': 'Reconectado',
     'fork.replyNotice.waiting': 'Aguardando o OpenCode começar a responder…',
     'fork.replyNotice.noReplyTitle': 'Ainda sem resposta',
     'fork.replyNotice.noReplyBody': 'O OpenCode não começou a responder em {seconds} segundos e não informou nenhum erro.',
@@ -217,7 +233,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Abrir log',
   },
   tr: {
-    'fork.replyNotice.reconnecting': 'OpenCode’a yeniden bağlanılıyor…',
+    'fork.replyNotice.waitingForConnection': 'Mesajınız bağlantının kurulmasını bekliyor.',
+    'fork.connection.reconnecting': 'Bağlantı kesildi · yeniden bağlanılıyor… {seconds} sn',
+    'fork.connection.reconnected': 'Yeniden bağlandı',
     'fork.replyNotice.waiting': 'OpenCode’un yanıt vermeye başlaması bekleniyor…',
     'fork.replyNotice.noReplyTitle': 'Henüz yanıt yok',
     'fork.replyNotice.noReplyBody': 'OpenCode {seconds} saniye içinde yanıt vermeye başlamadı ve hata bildirmedi.',
@@ -244,7 +262,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Günlüğü aç',
   },
   uk: {
-    'fork.replyNotice.reconnecting': 'Повторне підключення до OpenCode…',
+    'fork.replyNotice.waitingForConnection': 'Ваше повідомлення очікує на з’єднання.',
+    'fork.connection.reconnecting': 'З’єднання втрачено · повторне підключення… {seconds} с',
+    'fork.connection.reconnected': 'З’єднання відновлено',
     'fork.replyNotice.waiting': 'Очікування, доки OpenCode почне відповідь…',
     'fork.replyNotice.noReplyTitle': 'Відповіді ще немає',
     'fork.replyNotice.noReplyBody': 'OpenCode не почав відповідати протягом {seconds} секунд і не повідомив про помилку.',
@@ -271,7 +291,9 @@ export const forkI18n = {
     'fork.update.openLog': 'Відкрити журнал',
   },
   'zh-CN': {
-    'fork.replyNotice.reconnecting': '正在重新连接 OpenCode…',
+    'fork.replyNotice.waitingForConnection': '您的消息正在等待连接恢复。',
+    'fork.connection.reconnecting': '连接已断开 · 正在重新连接… {seconds}秒',
+    'fork.connection.reconnected': '已重新连接',
     'fork.replyNotice.waiting': '正在等待 OpenCode 开始回复…',
     'fork.replyNotice.noReplyTitle': '还没有收到回复',
     'fork.replyNotice.noReplyBody': 'OpenCode 在 {seconds} 秒内没有开始回复，也没有报告错误。',
@@ -298,7 +320,9 @@ export const forkI18n = {
     'fork.update.openLog': '打开日志',
   },
   'zh-TW': {
-    'fork.replyNotice.reconnecting': '正在重新連線 OpenCode…',
+    'fork.replyNotice.waitingForConnection': '您的訊息正在等待連線恢復。',
+    'fork.connection.reconnecting': '連線已中斷 · 正在重新連線… {seconds} 秒',
+    'fork.connection.reconnected': '已重新連線',
     'fork.replyNotice.waiting': '正在等待 OpenCode 開始回覆…',
     'fork.replyNotice.noReplyTitle': '還沒有收到回覆',
     'fork.replyNotice.noReplyBody': 'OpenCode 在 {seconds} 秒內沒有開始回覆，也沒有回報錯誤。',
