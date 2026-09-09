@@ -110,6 +110,10 @@ opening a connection. Session sync still uses the OpenCode SSE bridge and
 global session polling. Sending the control stream to the webview origin caused
 repeated `403` responses and URL-token requests to `/auth/url-token`.
 
+Shared lazy imports retry a failed chunk load, but skip browser-navigation
+recovery in VS Code. `window.location.reload()` is unsupported inside webviews;
+the original import error must reach the UI error boundary instead.
+
 ## Extension guideline
 
 When adding new bridge route families:
