@@ -258,6 +258,7 @@ const { autoUpdater } = updaterPkg;
 const state = {
   serverHandle: null,
   sidecarUrl: null,
+  localUiUrl: null,
   localOrigin: null,
   apiBaseUrl: null,
   clientToken: null,
@@ -2755,7 +2756,7 @@ const createAdditionalWindow = async (url, runtimeConfig = {}) => {
 const buildMiniChatUrl = ({ mode, sessionId, directory, projectId }) => {
   const base = shouldUsePackagedUi()
     ? buildPackagedUiUrl('/mini-chat.html')
-    : state.localOrigin || state.sidecarUrl;
+    : state.localUiUrl || state.localOrigin || state.sidecarUrl;
   if (!base) {
     throw new Error('Local UI is not available');
   }
@@ -2970,6 +2971,7 @@ const resolveInitialUrl = async () => {
     : localUrl;
 
   state.sidecarUrl = localUrl;
+  state.localUiUrl = localUiUrl;
   const localAvailable = Boolean(localUrl);
 
   const localOrigin = localUrl ? new URL(localUrl).origin : null;
