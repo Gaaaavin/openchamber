@@ -11,6 +11,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.failed': '无法重命名会话。请检查小模型设置后重试。',
   'sessions.aiRename.unsupported': 'VS Code 暂不支持 AI 重命名。',
   'commitComparison.mode': '提交',
+  'pullRequestComparison.select': '选择拉取请求',
   'commitComparison.select': '选择提交',
   'commitComparison.search': '搜索提交...',
   'commitComparison.loadError': '无法加载提交',

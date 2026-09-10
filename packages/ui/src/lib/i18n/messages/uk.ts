@@ -11,6 +11,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.failed': 'Не вдалося перейменувати сесію. Перевірте налаштування малої моделі та спробуйте ще раз.',
   'sessions.aiRename.unsupported': 'Перейменування за допомогою ШІ недоступне у VS Code.',
   'commitComparison.mode': 'Коміт',
+  'pullRequestComparison.select': 'Виберіть пул-реквест',
   'commitComparison.select': 'Вибрати коміт',
   'commitComparison.search': 'Пошук комітів...',
   'commitComparison.loadError': 'Не вдалося завантажити коміти',

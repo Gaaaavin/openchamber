@@ -11,6 +11,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.failed': 'セッション名を変更できませんでした。小規模モデルの設定を確認して、もう一度お試しください。',
   'sessions.aiRename.unsupported': 'VS CodeではAIによる名前の変更は利用できません。',
   'commitComparison.mode': 'コミット',
+  'pullRequestComparison.select': 'プルリクエストを選択',
   'commitComparison.select': 'コミットを選択',
   'commitComparison.search': 'コミットを検索...',
   'commitComparison.loadError': 'コミットを読み込めませんでした',

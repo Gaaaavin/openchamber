@@ -11,6 +11,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.failed': 'Não foi possível renomear a sessão. Verifique as configurações do modelo pequeno e tente novamente.',
   'sessions.aiRename.unsupported': 'A renomeação com IA não está disponível no VS Code.',
   'commitComparison.mode': 'Commit',
+  'pullRequestComparison.select': 'Selecionar pull request',
   'commitComparison.select': 'Selecionar commit',
   'commitComparison.search': 'Buscar commits...',
   'commitComparison.loadError': 'Não foi possível carregar os commits',

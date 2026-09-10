@@ -10,6 +10,7 @@ export const dict = {
   'sessions.aiRename.failed': 'Oturum yeniden adlandırılamadı. Küçük model ayarlarını kontrol edip tekrar deneyin.',
   'sessions.aiRename.unsupported': 'Yapay zekâ ile yeniden adlandırma VS Code içinde kullanılamaz.',
   'commitComparison.mode': 'Commit',
+  'pullRequestComparison.select': 'Çekme isteği seçin',
   'commitComparison.select': 'Commit seç',
   'commitComparison.search': 'Commit ara...',
   'commitComparison.loadError': 'Commitler yüklenemedi',

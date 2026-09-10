@@ -10,6 +10,7 @@ export const dict = {
   'sessions.aiRename.failed': 'Die Sitzung konnte nicht umbenannt werden. Prüfe die Einstellungen für das kleine Modell und versuche es erneut.',
   'sessions.aiRename.unsupported': 'Umbenennen mit KI ist in VS Code nicht verfügbar.',
   'commitComparison.mode': 'Commit',
+  'pullRequestComparison.select': 'Pull Request auswählen',
   'commitComparison.select': 'Commit auswählen',
   'commitComparison.search': 'Commits suchen...',
   'commitComparison.loadError': 'Commits konnten nicht geladen werden',

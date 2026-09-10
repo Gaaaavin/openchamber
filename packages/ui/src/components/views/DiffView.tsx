@@ -2,6 +2,8 @@ import React from 'react';
 
 import { useUIStore, type PendingDiffScope } from '@/stores/useUIStore';
 import { useCommitComparison } from '@/hooks/useCommitComparison';
+import { usePullRequestComparison } from '@/hooks/usePullRequestComparison';
+import { PullRequestComparisonSelector } from '@/components/views/git/PullRequestComparisonSelector';
 import { useGitComparison, type GitComparisonSource } from '@/hooks/useGitComparison';
 import { CommitComparisonSelector } from '@/components/views/git/CommitComparisonSelector';
 import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
@@ -254,6 +256,7 @@ interface ChangeScopeSelectorProps {
     turnCount: number;
     branchCount: number | null;
     commitCount: number | null;
+    prCount: number | null;
     showCommitOption: boolean;
     showBranchOption: boolean;
     onScopeChange?: (scope: PendingDiffScope) => void;
@@ -266,14 +269,15 @@ const ChangeScopeSelector = React.memo<ChangeScopeSelectorProps>(({
     turnCount,
     branchCount,
     commitCount,
+    prCount,
     showCommitOption,
     showBranchOption,
     onScopeChange,
 }) => {
     const { t } = useI18n();
     const [open, setOpen] = React.useState(false);
-    const currentCount = scope === 'staged' ? stagedCount : scope === 'turn' ? turnCount : scope === 'branch' ? (branchCount ?? 0) : scope === 'commit' ? (commitCount ?? 0) : workingCount;
-    const currentLabel = scope === 'staged'
+    const currentCount = scope === 'pr' ? (prCount ?? 0) : scope === 'staged' ? stagedCount : scope === 'turn' ? turnCount : scope === 'branch' ? (branchCount ?? 0) : scope === 'commit' ? (commitCount ?? 0) : workingCount;
+    const currentLabel = scope === 'pr' ? t('session.githubIntegration.tabs.pullRequests') : scope === 'staged'
         ? t('diffView.scope.staged')
         : scope === 'turn'
             ? t('diffView.scope.lastTurn')
@@ -299,7 +303,7 @@ const ChangeScopeSelector = React.memo<ChangeScopeSelectorProps>(({
                 <DropdownMenuRadioGroup
                     value={scope}
                     onValueChange={(value) => {
-                        if (value === 'working' || value === 'staged' || value === 'turn' || value === 'branch' || value === 'commit') {
+                        if (value === 'working' || value === 'staged' || value === 'turn' || value === 'branch' || value === 'commit' || value === 'pr') {
                             onScopeChange?.(value);
                             setOpen(false);
                         }
@@ -339,6 +343,12 @@ const ChangeScopeSelector = React.memo<ChangeScopeSelectorProps>(({
                             </span>
                         </DropdownMenuRadioItem>
                     )}
+                    {showCommitOption && <DropdownMenuRadioItem value="pr">
+                        <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                            <span>{t('session.githubIntegration.tabs.pullRequests')}</span>
+                            <span className="typography-meta text-muted-foreground">{prCount ?? '…'}</span>
+                        </span>
+                    </DropdownMenuRadioItem>}
                 </DropdownMenuRadioGroup>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -1033,7 +1043,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
     const activeDiffStaged = forcedStaged ?? displayFileStaged;
 
     const isMobileLayout = isMobile || screenWidth <= 768;
-    const showReviewAction = Boolean(currentSessionId) && activeDiffScope !== 'turn' && activeDiffScope !== 'commit' && !isMobileLayout && !isVSCodeRuntime();
+    const showReviewAction = Boolean(currentSessionId) && activeDiffScope !== 'turn' && activeDiffScope !== 'commit' && activeDiffScope !== 'pr' && !isMobileLayout && !isVSCodeRuntime();
     // Same runtime and width rules as the rail surface: no point offering an
     // entry point to a surface that cannot open here.
     const showWalkthroughAction = activeDiffScope !== 'turn' && !isMobileLayout && !isVSCodeRuntime();
@@ -1121,10 +1131,12 @@ export const DiffView: React.FC<DiffViewProps> = ({
 
     // ----- Branch scope (all changes on this branch vs its base) -----
     const currentBranch = status?.current ?? null;
+    const prComparison = usePullRequestComparison(effectiveDirectory ?? null, currentBranch, visible && activeDiffScope === 'pr' && !isVSCodeRuntime());
+    const selectedPr = prComparison.selectedSource;
     const commitComparison = useCommitComparison(effectiveDirectory ?? null, currentBranch, visible && activeDiffScope === 'commit' && !isVSCodeRuntime());
     const selectedCommitHash = commitComparison.selectedCommit?.hash ?? null;
     React.useEffect(() => {
-        if (activeDiffScope === 'commit' && isVSCodeRuntime()) {
+        if ((activeDiffScope === 'commit' || activeDiffScope === 'pr') && isVSCodeRuntime()) {
             setActiveDiffScope('working');
             onDiffScopeChange?.('working');
         }
@@ -1209,10 +1221,11 @@ export const DiffView: React.FC<DiffViewProps> = ({
     }, [activeDiffScope, branchScopeDefinitelyUnavailable, onDiffScopeChange]);
 
     const comparisonSource = React.useMemo<GitComparisonSource | null>(() => {
+        if (activeDiffScope === 'pr') return selectedPr;
         if (activeDiffScope === 'commit' && selectedCommitHash) return { kind: 'commit', hash: selectedCommitHash };
         if (activeDiffScope === 'branch' && branchBase && currentBranch) return { kind: 'branch', baseRef: branchBase, headRef: currentBranch };
         return null;
-    }, [activeDiffScope, branchBase, currentBranch, selectedCommitHash]);
+    }, [activeDiffScope, branchBase, currentBranch, selectedCommitHash, selectedPr]);
     const comparison = useGitComparison(effectiveDirectory ?? null, comparisonSource, visible && !isVSCodeRuntime(), activeDiffScope === 'branch' ? branchRevision : '');
     const { fetchDiff: loadComparisonDiff } = comparison;
     const commitFiles = activeDiffScope === 'commit' ? comparison.files : null;
@@ -1224,22 +1237,24 @@ export const DiffView: React.FC<DiffViewProps> = ({
     // there is no per-file cache channel, so patch data lives in a range-keyed
     // local cache. Stale completions from a previous range cannot write into
     // the new range's cache (see useRangeKeyedCache).
-    const comparisonRangeKey = comparison.files ? comparison.key : null;
+    const comparisonRangeKey = comparison.files ? (activeDiffScope === 'pr'
+        ? JSON.stringify([comparison.key, comparison.revision]) : comparison.key) : null;
     const comparisonPathsKey = React.useMemo(
-        () => (activeDiffScope === 'branch' || activeDiffScope === 'commit' ? Array.from(expandedFiles).sort().join('\0') : ''),
+        () => (activeDiffScope === 'branch' || activeDiffScope === 'commit' || activeDiffScope === 'pr' ? Array.from(expandedFiles).sort().join('\0') : ''),
         [activeDiffScope, expandedFiles]
     );
 
     const fetchComparisonDiffEntry = React.useCallback(
         async (filePath: string): Promise<ComparisonDiffResult> => {
             try {
-                const response = await loadComparisonDiff(filePath, loadFullFiles ? FULL_CONTEXT_DIFF_LINES : DEFAULT_CONTEXT_DIFF_LINES);
-                return { status: 'ready', data: createTextDiffDataFromPatch(filePath, response.diff, loadFullFiles ? 'full' : 'patch') };
+                const fullContext = loadFullFiles && activeDiffScope !== 'pr';
+                const response = await loadComparisonDiff(filePath, fullContext ? FULL_CONTEXT_DIFF_LINES : DEFAULT_CONTEXT_DIFF_LINES);
+                return { status: 'ready', data: createTextDiffDataFromPatch(filePath, response.diff, fullContext ? 'full' : 'patch') };
             } catch (error) {
                 return { status: 'error', message: error instanceof Error ? error.message : t('diffView.state.failedToLoadDiff') };
             }
         },
-        [loadComparisonDiff, loadFullFiles, t]
+        [activeDiffScope, loadComparisonDiff, loadFullFiles, t]
     );
 
     const comparisonDiffData = useRangeKeyedCache<ComparisonDiffResult>(
@@ -1247,14 +1262,14 @@ export const DiffView: React.FC<DiffViewProps> = ({
         visible ? comparisonPathsKey : '',
         comparisonRangeKey ? fetchComparisonDiffEntry : null,
         EMPTY_COMPARISON_DIFF,
-        JSON.stringify([activeDiffScope === 'branch' ? branchRevision : '', comparisonRetryRevision, loadFullFiles])
+        JSON.stringify([activeDiffScope === 'branch' ? branchRevision : '', activeDiffScope === 'pr' ? comparison.revision : 0, comparisonRetryRevision, loadFullFiles])
     );
 
     const branchFileCount = branchFiles?.length ?? null;
 
     const changedFiles: FileEntry[] = React.useMemo(() => {
-        if (activeDiffScope === 'commit') {
-            return (commitFiles ?? []).map((file) => ({
+        if (activeDiffScope === 'commit' || activeDiffScope === 'pr') {
+            return (comparison.files ?? []).map((file) => ({
                 path: file.path, index: '', working_dir: file.status,
                 insertions: file.insertions, deletions: file.deletions, isNew: file.status === 'A',
             }));
@@ -1303,7 +1318,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                 isNew: isNewStatusFile(file),
             }))
             .sort((a, b) => a.path.localeCompare(b.path));
-    }, [activeDiffScope, branchFiles, commitFiles, lastTurnDiffs, status]);
+    }, [activeDiffScope, branchFiles, comparison.files, lastTurnDiffs, status]);
 
     const changedFilePathsKey = React.useMemo(
         () => changedFiles.map((file) => file.path).join('\0'),
@@ -1899,10 +1914,10 @@ export const DiffView: React.FC<DiffViewProps> = ({
                                         void openFileInEditorAtChange(filePath, diffData);
                                     }}
                                     staged={getFileStaged(file.path)}
-                                    loadFullFiles={loadFullFiles}
-                                    readOnlyActions={activeDiffScope === 'branch' || activeDiffScope === 'commit'}
+                                    loadFullFiles={loadFullFiles && activeDiffScope !== 'pr'}
+                                    readOnlyActions={activeDiffScope === 'branch' || activeDiffScope === 'commit' || activeDiffScope === 'pr'}
                                     hunkActionsEnabled={activeDiffScope === 'all' || activeDiffScope === 'working' || activeDiffScope === 'staged'}
-                                    comparisonDiff={activeDiffScope === 'branch' || activeDiffScope === 'commit'
+                                    comparisonDiff={activeDiffScope === 'branch' || activeDiffScope === 'commit' || activeDiffScope === 'pr'
                                         ? comparisonDiffData.get(file.path) ?? EMPTY_COMPARISON_DIFF
                                         : undefined}
                                     onRetryComparisonDiff={() => setComparisonRetryRevision((revision) => revision + 1)}
@@ -1945,6 +1960,23 @@ export const DiffView: React.FC<DiffViewProps> = ({
                     {t('diffView.state.notGitRepository')}
                 </div>
             );
+        }
+
+        if (activeDiffScope === 'pr') {
+            if (!selectedPr || comparison.error) {
+                return <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+                    <p className="typography-meta text-muted-foreground">{comparison.error ?? prComparison.error ?? (prComparison.loading
+                        ? t('session.githubPrPicker.loading.pullRequests') : t('pullRequestComparison.select'))}</p>
+                    {(comparison.error || prComparison.error) && <Button variant="outline" size="sm" onClick={() => {
+                        if (selectedPr) void comparison.refresh();
+                        else void prComparison.refresh();
+                    }}>{t('diffView.actions.retry')}</Button>}
+                    {!selectedPr && !prComparison.loading && <PullRequestComparisonSelector comparison={prComparison} />}
+                </div>;
+            }
+            if (!comparison.files) return <div className="flex flex-1 items-center justify-center gap-2 typography-meta text-muted-foreground">
+                <Icon name="loader-4" className="size-4 animate-spin" />{t('diffView.state.loadingDiff')}
+            </div>;
         }
 
         if (activeDiffScope === 'commit') {
@@ -2016,6 +2048,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
             return (
                 <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                     {activeDiffScope === 'turn' ? t('diffView.state.noLastTurnChanges')
+                        : activeDiffScope === 'pr' ? t('walkthrough.blocked.emptyDiff.description')
                         : activeDiffScope === 'commit' ? t('commitComparison.emptyDiff')
                         : activeDiffScope === 'branch' && branchBase ? t('diffView.branch.empty', { base: branchRefLabel(branchBase) })
                         : t('diffView.state.cleanWorkingTree')}
@@ -2047,7 +2080,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
                             stagedCount={stagedFileCount}
                             turnCount={turnFileCount}
                             branchCount={branchFileCount}
-                            commitCount={commitFiles?.length ?? null}
+                            commitCount={activeDiffScope === 'commit' ? commitFiles?.length ?? null : null}
+                            prCount={activeDiffScope === 'pr' ? comparison.files?.length ?? null : null}
                             showCommitOption={!isVSCodeRuntime()}
                             showBranchOption={showBranchOption}
                             onScopeChange={(scope) => {
@@ -2089,6 +2123,12 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         onRefresh={() => void commitComparison.refresh()}
                     />
                 )}
+                {activeDiffScope === 'pr' && <>
+                    <PullRequestComparisonSelector key={JSON.stringify([runtimeKey, effectiveDirectory, currentBranch])} comparison={prComparison} />
+                    {selectedPr && <Button variant="ghost" size="sm" disabled={comparison.loading}
+                        aria-label={t('session.githubIssuePicker.actions.refresh')} title={t('session.githubIssuePicker.actions.refresh')}
+                        onClick={() => void comparison.refresh()}><Icon name="refresh" className="size-4" /></Button>}
+                </>}
                 {changedFiles.length > 0 && (
                     <Button
                         variant="ghost"
@@ -2137,7 +2177,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                             // while looking at staged changes should review
                             // staged changes, not whatever the panel showed last.
                             const directory = effectiveDirectory ?? '';
-                            requestWalkthroughSource(directory, activeDiffScope === 'commit' && selectedCommitHash ? {
+                            requestWalkthroughSource(directory, activeDiffScope === 'pr' && selectedPr ? selectedPr : activeDiffScope === 'commit' && selectedCommitHash ? {
                                 kind: 'commit', hash: selectedCommitHash,
                             } : activeDiffScope === 'branch' && branchBase && currentBranch ? {
                                 kind: 'branch',
@@ -2149,7 +2189,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                                     ? activeDiffScope
                                     : 'all',
                             });
-                            openContextSurface(directory, 'walkthrough');
+                            openContextSurface(rootDirectory ?? directory, 'walkthrough');
                         }}
                         className={cn('diff-toolbar__walkthrough-button h-7 flex-shrink-0 gap-1.5 px-2', WALKTHROUGH_ACTION_CLASS)}
                         aria-label={t('walkthrough.action.open')}
@@ -2160,7 +2200,7 @@ export const DiffView: React.FC<DiffViewProps> = ({
                         </span>
                     </Button>
                 )}
-                {changedFiles.length > 0 && (
+                {changedFiles.length > 0 && activeDiffScope !== 'pr' && (
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button

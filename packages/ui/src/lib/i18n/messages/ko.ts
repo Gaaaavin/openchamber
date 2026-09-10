@@ -11,6 +11,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.failed': '세션 이름을 변경하지 못했습니다. 소형 모델 설정을 확인하고 다시 시도해 주세요.',
   'sessions.aiRename.unsupported': 'VS Code에서는 AI 이름 변경을 사용할 수 없습니다.',
   'commitComparison.mode': '커밋',
+  'pullRequestComparison.select': '풀 리퀘스트 선택',
   'commitComparison.select': '커밋 선택',
   'commitComparison.search': '커밋 검색...',
   'commitComparison.loadError': '커밋을 불러오지 못했습니다',

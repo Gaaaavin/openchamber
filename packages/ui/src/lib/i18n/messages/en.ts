@@ -10,6 +10,7 @@ export const dict = {
   'sessions.aiRename.failed': 'Could not rename the session. Check your Small Model settings and try again.',
   'sessions.aiRename.unsupported': 'AI renaming is not available in VS Code.',
   'commitComparison.mode': 'Commit',
+  'pullRequestComparison.select': 'Select pull request',
   'commitComparison.select': 'Select commit',
   'commitComparison.search': 'Search commits...',
   'commitComparison.loadError': 'Failed to load commits',
