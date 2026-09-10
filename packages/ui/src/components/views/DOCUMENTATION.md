@@ -16,6 +16,18 @@ consume another tab's pending navigation request.
 `WalkthroughView` gates discovery and source loading while retaining generated
 results and any explicitly started generation job.
 
+## Large text files
+
+The 200,000-character threshold selects an initial code preview, not read-only
+permissions. Users can switch large text files into editing through the normal
+view controls. Markdown, HTML, JSON and Draw.io retain their own preview-mode
+preferences. Binary, image and outside-workspace restrictions still apply.
+`fileEditorContent.ts` preserves the complete normalized text in both the loaded
+snapshot and draft, and restores the detected line ending on save. Preview
+limits must never truncate a writable draft or its dirty-comparison baseline.
+Large code previews render the current draft and hash its full content only
+while previewing, so same-length edits in the middle invalidate cached output.
+
 ## Pull request comparisons
 
 DiffView, mobile Changes and walkthrough share `PullRequestComparisonSelector`

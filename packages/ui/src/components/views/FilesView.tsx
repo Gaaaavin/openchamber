@@ -52,6 +52,7 @@ import { useDeviceInfo } from '@/lib/device';
 import { cn, getRevealLabelKey } from '@/lib/utils';
 import { getLanguageFromExtension, getImageMimeType, isBinaryFile, isDrawioFile, isImageFile, isPdfFile, isSvgFile, looksLikeBinaryText } from '@/lib/toolHelpers';
 import { shouldAllowFileDraftSave, shouldScheduleFileAutosave } from '@/lib/fileEditorAutosave';
+import { LARGE_FILE_CHAR_THRESHOLD, initialFileTextMode, makeFileContentCacheKey, prepareFileEditorContent, serializeEditorContent, type FileLineEnding } from './fileEditorContent';
 import { getRuntimeUrlResolver } from '@/lib/runtime-url';
 import { acquireRuntimeUrlAuthToken, refreshRuntimeUrlAuthToken, subscribeRuntimeUrlAuthToken } from '@/lib/runtime-auth';
 import { getRuntimeApiBaseUrl, getRuntimeKey } from '@/lib/runtime-switch';
@@ -318,51 +319,7 @@ const isFileMissingError = (error: unknown): boolean => {
     || normalized.includes('does not exist');
 };
 
-const MAX_VIEW_CHARS = 200_000;
 const MAX_CONTENT_POLL_BYTES = 200_000;
-type FileLineEnding = '\n' | '\r\n';
-
-// Fast cache key for pierre's line/highlight caches: content-derived (not a
-// revision counter) so polling reloads and out-of-view changes can never hit
-// a stale entry. Mirrors the diff viewer's key scheme. Known residual: two
-// files identical in total length and in the first/last 200 characters can
-// collide and briefly show stale content; same profile as PierreDiffViewer.
-function makeContentCacheKey(contents: string): string {
-  const sample = contents.length > 400
-    ? `${contents.slice(0, 200)}${contents.slice(-200)}`
-    : contents;
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < sample.length; i += 1) {
-    hash ^= sample.charCodeAt(i);
-    hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
-  }
-  return `${contents.length}:${hash.toString(16)}`;
-}
-
-const detectFileLineEnding = (content: string): FileLineEnding => {
-  let crlf = 0;
-  let lf = 0;
-
-  for (let index = 0; index < content.length; index += 1) {
-    if (content.charCodeAt(index) !== 10) {
-      continue;
-    }
-    if (index > 0 && content.charCodeAt(index - 1) === 13) {
-      crlf += 1;
-    } else {
-      lf += 1;
-    }
-  }
-
-  return crlf > lf ? '\r\n' : '\n';
-};
-
-const normalizeEditorLineEndings = (content: string): string => content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-const serializeEditorContent = (content: string, lineEnding: FileLineEnding): string => {
-  const normalized = normalizeEditorLineEndings(content);
-  return lineEnding === '\r\n' ? normalized.replace(/\n/g, '\r\n') : normalized;
-};
 
 const getFileIcon = (filePath: string, extension?: string): React.ReactNode => {
   return <FileTypeIcon filePath={filePath} extension={extension} />;
@@ -1699,14 +1656,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     };
   }, [files, openPaths, removeOpenPathsByPrefix, resolveFileReadOptions, root]);
 
-  const displayedContent = React.useMemo(() =>
-    fileContent.length > MAX_VIEW_CHARS
-      ? `${fileContent.slice(0, MAX_VIEW_CHARS)}\n\n… truncated …`
-      : fileContent,
-    [fileContent]
-  );
-
-  const isDirty = draftContent !== displayedContent;
+  const isDirty = draftContent !== fileContent;
 
   const saveDraft = React.useCallback(async () => {
     if (!selectedFile || !files.writeFile) {
@@ -1883,16 +1833,15 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   });
 
   const applyLoadedTextContent = React.useCallback((content: string) => {
-    const editorContent = normalizeEditorLineEndings(content);
+    const { content: editorContent, lineEnding } = prepareFileEditorContent(content);
     lastLoadedFileContentRef.current = content;
     lastLoadedFileRevisionRef.current += 1;
-    setLoadedFileLineEnding(detectFileLineEnding(content));
+    setLoadedFileLineEnding(lineEnding);
     setFileContent(editorContent);
     diagramXmlRef.current = editorContent;
     diagramSavedXmlRef.current = editorContent;
-    setDraftContent(editorContent.length > MAX_VIEW_CHARS
-      ? `${editorContent.slice(0, MAX_VIEW_CHARS)}\n\n… truncated …`
-      : editorContent);
+    setDraftContent(editorContent);
+    return editorContent;
   }, []);
 
   const loadSelectedFile = React.useCallback(async (node: FileNode) => {
@@ -1974,7 +1923,10 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
           setLoadedFilePath(node.path);
           return;
         }
-        applyLoadedTextContent(content);
+        const editorContent = applyLoadedTextContent(content);
+        const hasOwnPreviewMode = isMarkdownFile(node.path) || isHtmlFile(node.path)
+          || isJsonFile(node.path) || isDrawioFile(node.path);
+        setTextViewMode(hasOwnPreviewMode ? 'edit' : initialFileTextMode(editorContent, textViewModeByPathRef.current[node.path]));
         setLoadedFilePath(node.path);
         void readFileStat(node.path)
           .then((stat) => {
@@ -2263,7 +2215,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setConfirmDiscardOpen(false);
 
     // Discard draft by reverting back to last loaded content
-    setDraftContent(displayedContent);
+    setDraftContent(fileContent);
 
     if (closePath) {
       if (root) {
@@ -2293,7 +2245,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
       return;
     }
 
-  }, [displayedContent, handleSelectFile, isMobile, removeOpenPath, root, selectedFile?.path, setSelectedPath]);
+  }, [fileContent, handleSelectFile, isMobile, removeOpenPath, root, selectedFile?.path, setSelectedPath]);
 
   const saveAndContinue = React.useCallback(async () => {
     const nextFile = pendingSelectFileRef.current;
@@ -2503,7 +2455,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
   const canCopyPath = Boolean(selectedFile && displaySelectedPath.length > 0);
   // Keep image/SVG on the preview path: `isBinaryFile` excludes `.svg`, so binary
   // alone would flip canEdit/isTextFile true and show a dead edit toggle + no-op Save.
-  const canEdit = Boolean(selectedFile && !selectedFileIsOutsideWorkspace && !isSelectedBinary && !isSelectedImage && files.writeFile && fileContent.length <= MAX_VIEW_CHARS);
+  const canEdit = Boolean(selectedFile && !selectedFileIsOutsideWorkspace && !isSelectedBinary && !isSelectedImage && files.writeFile);
   const isMarkdown = Boolean(selectedFile?.path && isMarkdownFile(selectedFile.path));
   const isJson = Boolean(selectedFile?.path && isJsonFile(selectedFile.path));
   const isHtml = Boolean(selectedFile?.path && isHtmlFile(selectedFile.path));
@@ -3282,13 +3234,12 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
     setFullscreenMarkdownScroll(node);
   }, [setFullscreenMarkdownScroll]);
   const shikiWorkerPool = useWorkerPool('unified');
-  // Files above the editable size cap are rendered as a read-only preview; give
-  // them the full file content plus pierre's viewport virtualization and the
-  // shared Shiki worker pool so large files stay responsive.
-  const isLargeFile = fileContent.length > MAX_VIEW_CHARS;
+  // Large code previews use the full draft with viewport virtualization and
+  // the shared Shiki worker pool. The threshold does not disable editing.
+  const isLargeFile = draftContent.length > LARGE_FILE_CHAR_THRESHOLD;
   const largeFileCacheKey = React.useMemo(
-    () => (isLargeFile ? makeContentCacheKey(fileContent) : undefined),
-    [fileContent, isLargeFile],
+    () => (isLargeFile && codePreviewActive ? makeFileContentCacheKey(draftContent) : undefined),
+    [codePreviewActive, draftContent, isLargeFile],
   );
 
   const renderShikiFileView = React.useCallback((file: FileNode, content: string, virtualizer: FileViewVirtualizer, restoreScroll: ReturnType<typeof useFilePreviewScrollPosition>['restore']) => {
@@ -4104,7 +4055,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
             </div>
             )
           ) : selectedFile && canUseShikiFileView && textViewMode === 'view' ? (
-            renderShikiFileView(selectedFile, isLargeFile ? fileContent : draftContent, mainViewVirtualizer, restoreMainCodeScroll)
+            renderShikiFileView(selectedFile, draftContent, mainViewVirtualizer, restoreMainCodeScroll)
           ) : (
             <div
               className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}
@@ -4472,7 +4423,7 @@ export const FilesView: React.FC<FilesViewProps> = ({ mode = 'full', visible = t
               />
             </div>
           ) : canUseShikiFileView && textViewMode === 'view' ? (
-            renderShikiFileView(selectedFile, isLargeFile ? fileContent : draftContent, fullscreenViewVirtualizer, restoreFullscreenCodeScroll)
+            renderShikiFileView(selectedFile, draftContent, fullscreenViewVirtualizer, restoreFullscreenCodeScroll)
           ) : (
             <div className={cn('relative h-full', shouldMaskEditorForPendingNavigation && 'overflow-hidden')}>
               <div className={cn('h-full', shouldMaskEditorForPendingNavigation && 'invisible')}>
