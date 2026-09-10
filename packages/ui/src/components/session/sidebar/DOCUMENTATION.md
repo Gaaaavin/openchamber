@@ -60,6 +60,11 @@ move; the pending operation survives closing the menu or selecting another
 session. Eligibility loads only while a menu is open. See the AI session titles
 section in `sync/DOCUMENTATION.md` for context selection and mutation guards.
 
+Manual rename inputs share `components/session/sessionRenameKeyboard.ts` with
+the header and mobile list. Enter explicitly submits the owning form on
+keydown; Escape cancels. IME composition keys keep their text-input behavior,
+and held Enter does not submit repeatedly.
+
 ## Search
 
 Sidebar and Recent queries beginning with `ses_` match only the full session ID,

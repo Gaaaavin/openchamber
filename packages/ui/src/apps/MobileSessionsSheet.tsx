@@ -74,6 +74,7 @@ import { useSessionUnseenCount } from '@/sync/notification-store';
 import { useHasSessionActivityDuration } from '@/sync/session-activity-timing';
 import { SessionActivityDuration } from '@/components/session/SessionActivityDuration';
 import { useSessionAiRenameAction } from '@/components/session/useSessionAiRenameAction';
+import { handleSessionRenameKeyDown } from '@/components/session/sessionRenameKeyboard';
 import type { WorktreeMetadata } from '@/types/worktree';
 
 import { MobileDeleteWorktreeDialog } from './MobileDeleteWorktreeDialog';
@@ -443,10 +444,7 @@ const SessionRenameForm: React.FC<{
         ref={focusRenameInput}
         value={value}
         onChange={(event) => setValue(event.target.value)}
-        onKeyDown={(event) => {
-          event.stopPropagation();
-          if (event.key === 'Escape') onCancel();
-        }}
+        onKeyDown={(event) => handleSessionRenameKeyDown(event, onCancel)}
         aria-label={t('sessions.sidebar.session.rename.save')}
         placeholder={t('sessions.sidebar.session.menu.rename')}
         // 16px prevents the iOS focus zoom; the bare input keeps the row height.

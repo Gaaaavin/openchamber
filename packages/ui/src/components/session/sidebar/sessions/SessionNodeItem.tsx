@@ -24,6 +24,7 @@ import { Icon } from "@/components/icon/Icon";
 import { buildExportFilename, downloadAsMarkdown, formatSessionAsMarkdown, getExportRevealLabelKey, revealExportedMarkdown, saveAsMarkdownDesktop } from '@/lib/exportSession';
 import type { ChildSessionExport } from '@/lib/exportSession';
 import { SessionAiRenameMenuItem } from '@/components/session/SessionAiRenameMenuItem';
+import { handleSessionRenameKeyDown } from '@/components/session/sessionRenameKeyboard';
 import { useIsSessionAiRenamePending } from '@/sync/use-session-ai-rename';
 import { useGlobalSessionStatus, useSessionPermissions, useSessionQuestionCount } from '@/sync/sync-context';
 import { usePrefetchSessionMessages, useSessionMessageRecordsForExport } from '@/sync/use-sync';
@@ -687,13 +688,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
               className="flex-1 min-w-0 bg-transparent typography-ui-label outline-none placeholder:text-muted-foreground"
               autoFocus
               placeholder={t('sessions.sidebar.session.menu.rename')}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === 'Escape') {
-                  handleCancelEdit();
-                  return;
-                }
-              }}
+              onKeyDown={(event) => handleSessionRenameKeyDown(event, handleCancelEdit)}
             />
             <button
               type="submit"

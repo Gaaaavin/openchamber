@@ -68,6 +68,7 @@ import { toast } from '@/components/ui';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { buildExportFilename, downloadAsMarkdown, formatSessionAsMarkdown, saveAsMarkdownDesktop } from '@/lib/exportSession';
 import { SessionAiRenameMenuItem } from '@/components/session/SessionAiRenameMenuItem';
+import { handleSessionRenameKeyDown } from '@/components/session/sessionRenameKeyboard';
 import { useIsSessionAiRenamePending } from '@/sync/use-session-ai-rename';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -1442,12 +1443,7 @@ export const Header: React.FC = () => {
                     ref={focusHeaderRenameInput}
                     value={headerSessionTitleDraft}
                     onChange={(event) => setHeaderSessionTitleDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === 'Escape') {
-                        setIsRenamingHeaderSession(false);
-                      }
-                    }}
+                    onKeyDown={(event) => handleSessionRenameKeyDown(event, () => setIsRenamingHeaderSession(false))}
                     placeholder={t('sessions.sidebar.session.menu.rename')}
                     className="min-w-0 flex-1 bg-transparent typography-ui-label text-[14px] font-normal leading-tight outline-none placeholder:text-muted-foreground"
                   />
@@ -1600,12 +1596,7 @@ export const Header: React.FC = () => {
                     ref={focusHeaderRenameInput}
                     value={headerSessionTitleDraft}
                     onChange={(event) => setHeaderSessionTitleDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      event.stopPropagation();
-                      if (event.key === 'Escape') {
-                        setIsRenamingHeaderSession(false);
-                      }
-                    }}
+                    onKeyDown={(event) => handleSessionRenameKeyDown(event, () => setIsRenamingHeaderSession(false))}
                     placeholder={t('sessions.sidebar.session.menu.rename')}
                     className="min-w-0 flex-1 bg-transparent text-[13px] font-medium leading-4 outline-none placeholder:text-muted-foreground"
                   />
