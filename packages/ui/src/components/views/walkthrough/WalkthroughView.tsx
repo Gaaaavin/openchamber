@@ -185,8 +185,8 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
   const { github, git } = useRuntimeAPIs();
 
   useEffect(() => {
-    if (directory) void ensureAll(directory, git);
-  }, [directory, ensureAll, git]);
+    if (visible && directory) void ensureAll(directory, git);
+  }, [directory, ensureAll, git, visible]);
 
   // Changes and walkthrough share the explicit base choice and reflog detection.
   const currentBranch = status?.current ?? null;
@@ -212,7 +212,7 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
   const refreshPrStatusTargets = useGitHubPrStatusStore((state) => state.refreshTargets);
 
   useEffect(() => {
-    if (!directory || !currentBranch || !githubAuthChecked || !githubConnected) return;
+    if (!visible || !directory || !currentBranch || !githubAuthChecked || !githubConnected) return;
     const key = getGitHubPrStatusKey(directory, currentBranch);
     ensurePrStatusEntry(key);
     setPrStatusParams(key, {
@@ -234,6 +234,7 @@ export const WalkthroughView = ({ directory: rootDirectory, visible = true }: Wa
     githubConnected,
     refreshPrStatusTargets,
     setPrStatusParams,
+    visible,
   ]);
 
   // Selecting the number rather than the entry map: a primitive keeps this

@@ -185,6 +185,12 @@ Live activity/status indicators must not depend on this cache. They must use the
 
 ## Session message loading
 
+The event pipeline's reconnect callback carries `replayReset`. A global WS
+`ready` frame with that flag means the server's bounded replay suffix no longer
+covers the client cursor. The pipeline clears that cursor and the sync provider
+runs normal authoritative gap repair even during early boot. Ordinary reconnects
+retain their existing startup grace period.
+
 `SessionMessageLoader` is the shared authority for session message requests. Navigation, reactive chat loading, sidebar prefetch, pagination, reconnect/recovery, and optimistic reconciliation must delegate to it rather than issuing parallel initial requests.
 
 Rules:
